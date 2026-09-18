@@ -1,91 +1,90 @@
-# Handoff to Sonnet 5 (Claude Code / AI Engineering Factory)
+# Claude Code / Sonnet 5 向け引き継ぎ書 (Handoff to Sonnet 5)
 
-This document hands off the Initial Builder artifacts from Google Antigravity to Claude Code / Sonnet 5 and the AI Engineering Factory governance layer.
-
----
-
-## 1. Handoff Metadata
-- **Repository**: `moruku36/web-security-control-lab`
-- **Current Branch**: `main`
-- **Base Verification Commit SHA**: `83c3fded605b1a4d6df0827723450822bcdd6de4`
-- **Initial Builder**: Google Antigravity
-- **Handoff Target**: Claude Code / Sonnet 5
-- **Status**: `READY_FOR_INDEPENDENT_VERIFICATION`
+本ドキュメントは、Initial Builder（Google Antigravity）が構築した初期実装資産を、後工程の独立検証・セキュリティレビュー・改修を担当する **Claude Code / Sonnet 5** および **AI Engineering Factory** へ引き渡すための仕様書です。
 
 ---
 
-## 2. Implemented Components
-1. **Target Web Application (`app/`)**:
-   - FastAPI core (`app/main.py`), in-memory SQLite fixtures (`app/db.py`), cookie-based authentication (`app/auth.py`), and Jinja2 templates (`app/templates/`).
-   - Configurable via `LAB_MODE` (`VULNERABLE` default, `HARDENED` target).
-2. **Local Security Scanner (`scanner/`)**:
-   - Fail-Closed target safety validator (`scanner/target.py`).
-   - 6 automated security control checks (`scanner/checks.py`).
-   - CLI supporting text and JSON output (`scanner/cli.py`, `scanner/reporter.py`).
-3. **Verification Suite (`tests/`)**:
-   - 16 automated tests covering URL safety, scanner checks, integration endpoints, and intentional vulnerability presence.
-4. **AI Engineering Factory Task Manifests (`factory/tasks/`)**:
+## 1. 引き継ぎメタデータ (Metadata)
+- **対象リポジトリ**: `moruku36/web-security-control-lab`
+- **対象ブランチ**: `main`
+- **初期構築担当 (Initial Builder)**: Google Antigravity
+- **引き継ぎ対象エージェント**: Claude Code / Sonnet 5
+- **ステータス**: `READY_FOR_INDEPENDENT_VERIFICATION`
+
+---
+
+## 2. 初期構築済みコンポーネント (Implemented Components)
+1. **脆弱Webアプリケーション (`app/`)**:
+   - FastAPIコア (`app/main.py`)、SQLiteデータフィクスチャ (`app/db.py`)、Cookieベース認証 (`app/auth.py`)、Jinja2テンプレート (`app/templates/`)。
+   - `LAB_MODE` 環境変数による切り替え構造（初期状態: `VULNERABLE`）。
+2. **ローカル専用セキュリティスキャナ (`scanner/`)**:
+   - Fail-Closed な対象バリデータ (`scanner/target.py`)。
+   - LAB-01〜06 を検知する6つの検査モジュール (`scanner/checks.py`)。
+   - テキスト/JSON出力対応CLI (`scanner/cli.py`, `scanner/reporter.py`)。
+3. **自動検証テストスイート (`tests/`)**:
+   - 16件の自動テスト（結合テスト、スキャナ単体テスト、意図的脆弱性の存在確認テスト）。
+4. **AI Engineering Factory タスクマニフェスト (`factory/tasks/`)**:
    - `wscl-001.yaml` (Phase 1, DONE)
    - `wscl-002.yaml` (Phase 2, DONE)
-   - `wscl-003.yaml` (Phase 3, READY - RESERVED FOR SONNET 5)
+   - `wscl-003.yaml` (Phase 3, **READY - Sonnet 5 担当用に予約**)
    - `wscl-004.yaml` (Phase 4, DONE)
 
 ---
 
-## 3. Known Intentional Vulnerabilities & Expected Scanner Findings
+## 3. 実装済みの意図的な脆弱性とスキャナ検出期待値
 
-| Lab ID | Category | Description | Severity | Target File |
+| Lab ID | カテゴリ | 脆弱性の内容 | 重要度 | 実装ファイル |
 | :--- | :--- | :--- | :--- | :--- |
-| **LAB-01** | Broken Access Control | `/admin` accessible by standard user (`alice`) | HIGH | `app/main.py` |
-| **LAB-02** | Session Cookie | `HttpOnly` flag missing on `lab_session` | MEDIUM | `app/auth.py` |
-| **LAB-03** | Session Cookie | `SameSite` attribute missing/omitted | MEDIUM | `app/auth.py` |
-| **LAB-04** | Security Headers | CSP, X-Content-Type-Options, Referrer-Policy missing | MEDIUM | `app/main.py` |
-| **LAB-05** | Information Disclosure | Traceback/diagnostics exposed on `/api/diagnostic` | LOW | `app/main.py` |
-| **LAB-06** | Security Logging | Failed authentication not recorded to audit log | MEDIUM | `app/auth.py` |
+| **LAB-01** | Broken Access Control | `/admin` に一般ユーザー（`alice`）がアクセス可能 | HIGH | `app/main.py` |
+| **LAB-02** | Session Cookie | `lab_session` Cookieに `HttpOnly` 属性が未設定 | MEDIUM | `app/auth.py` |
+| **LAB-03** | Session Cookie | `lab_session` Cookieに `SameSite` 属性が未設定 | MEDIUM | `app/auth.py` |
+| **LAB-04** | Security Headers | CSP、X-Content-Type-Options、Referrer-Policy が未設定 | MEDIUM | `app/main.py` |
+| **LAB-05** | Information Disclosure | `/api/diagnostic` がスタックトレース等の内部情報を露出 | LOW | `app/main.py` |
+| **LAB-06** | Security Logging | ログイン失敗時に監査ログが記録されない | MEDIUM | `app/auth.py` |
 
-### Expected Scanner Finding Summary in VULNERABLE Mode
+### VULNERABLEモードでのスキャナ検出サマリー期待値
 - `HIGH: 1`
 - `MEDIUM: 4`
 - `LOW: 1`
 
 ---
 
-## 4. Remediation Objective (Factory Task: `WSCL-003`)
-Sonnet 5 is responsible for implementing the security remediations under `WSCL-003`:
-1. Fix `app/auth.py` and `app/main.py` so that `HARDENED` mode (or secure default):
-   - Restricts `/admin` to `role == 'admin'` (HTTP 403 otherwise).
-   - Sets `HttpOnly` and `SameSite=lax` on the session cookie.
-   - Adds defensive security headers via middleware.
-   - Sanitizes diagnostic error outputs.
-   - Logs `AUTH_FAILURE` audit records on failed login attempts.
-2. Update tests in `tests/vulnerabilities/` to assert secure behavior.
-3. Verify that the scanner reports 0 findings on the hardened app.
+## 4. Sonnet 5 の改修タスク目標 (Factory Task: `WSCL-003`)
+Sonnet 5 は Factory Task `WSCL-003` に従い、以下のセキュリティ改修を担当します:
+1. `app/auth.py` および `app/main.py` を修正し、`HARDENED` モード（または安全なデフォルト）を完成させる:
+   - `/admin` へのアクセス時に `role == 'admin'` を検証し、非管理者のアクセスを 403 Forbidden で拒絶する。
+   - セッションCookie発行時に `HttpOnly=True` および `SameSite="lax"` を付与する。
+   - HTTPレスポンスMiddlewareで防御セキュリティヘッダーを付加する。
+   - エラー診断エンドポイントの出力をサニタイズし、汎用エラーメッセージのみ返却する。
+   - 認証失敗時に `AUTH_FAILURE` 監査ログを確実に記録する。
+2. `tests/vulnerabilities/` 内のテスト期待値をセキュア検証用に更新する。
+3. 改修後のアプリケーションに対してスキャナを実行し、Finding件数が 0件 になることを確認する。
 
 ---
 
-## 5. Scope & Boundary Rules for Sonnet 5
+## 5. Sonnet 5 の変更許可範囲と禁止事項 (Scope Boundary)
 
-### Allowed Paths for Modification
-- `app/` (all application source code)
-- `tests/` (updating test expectations for hardened controls)
+### 変更許可パス (Allowed Paths)
+- `app/` (アプリケーション実装コード全般)
+- `tests/` (堅牢化後の挙動を検証するためのテストコード更新)
 
-### Prohibited Paths (DO NOT MODIFY)
-- `scanner/` (Scanner is the independent evaluation ground truth)
-- `factory/` (Task manifests must remain untouched unless authorized)
-- `.github/` (CI pipelines)
-- `SECURITY.md` (Security policy)
+### 変更禁止パス (Prohibited Paths)
+- `scanner/` (スキャナは評価基準のグラウンドトゥルースのため改変不可)
+- `factory/` (タスクマニフェストは承認レイヤー管理のため改変不可)
+- `.github/` (CI設定)
+- `SECURITY.md` (基本セキュリティポリシー)
 
 ---
 
-## 6. Verification Commands
-Execute from repository root:
+## 6. 検証コマンド (Verification Commands)
+リポジトリ直下で実行:
 ```bash
-# Lint check
+# 静的解析
 ruff check .
 
-# Automated test suite
+# 自動テストスイート実行
 pytest -v
 
-# Scanner execution
+# セキュリティスキャナ実行
 security-lab scan http://127.0.0.1:8000 --format json
 ```
