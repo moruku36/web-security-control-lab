@@ -1,0 +1,10 @@
+services:
+  web:
+    build: .
+    container_name: web-security-control-lab-app
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      - LAB_MODE=VULNERABLE
+      - LAB_PORT=8000
+    restart: unless-stopped
