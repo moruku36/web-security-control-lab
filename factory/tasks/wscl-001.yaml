@@ -1,0 +1,51 @@
+schema_version: "2020-12"
+id: "WSCL-001"
+title: "Vulnerable Web Application Foundation"
+description: "Implement initial vulnerable FastAPI application, SQLite database, session management, user/admin endpoints, and intentional security weaknesses (LAB-01 through LAB-06)."
+phase: 1
+dependencies: []
+parallelizable: false
+role: "builder"
+repository: "https://github.com/moruku36/web-security-control-lab"
+base_ref: "main"
+branch: "task/wscl-001-vulnerable-app"
+worktree: "runtime-root/worktrees/wscl-001"
+allowed_paths:
+  - "app/"
+  - "tests/"
+prohibited_paths:
+  - ".github/"
+  - "scanner/"
+validation:
+  - command_id: "ruff_lint"
+    timeout_seconds: 120
+  - command_id: "pytest_app"
+    timeout_seconds: 300
+completion_criteria:
+  - id: "CC-1"
+    statement: "FastAPI application boots and serves endpoints with intentional vulnerabilities"
+    evidence_type: "test_run"
+  - id: "CC-2"
+    statement: "Ruff linter passes cleanly"
+    evidence_type: "lint_run"
+risk: "medium"
+approval:
+  before_execution: false
+  before_merge: true
+output_artifacts:
+  - kind: "test_report"
+    path: "reports/test-wscl-001.json"
+    classification: "internal"
+resources:
+  ports:
+    - 8000
+  test_db: true
+  exclusive_keys:
+    - "lab_app_port"
+permissions:
+  - "default"
+retry:
+  max_attempts: 3
+  timeout_minutes: 15
+status: "DONE"
+state_ref: "state/tasks/WSCL-001.json"

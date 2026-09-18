@@ -1,0 +1,57 @@
+schema_version: "2020-12"
+id: "WSCL-002"
+title: "Security Scanner and Safety Boundary"
+description: "Implement safe local CLI security scanner with fail-closed target validator, checks for LAB-01 through LAB-06, and text/JSON reporting."
+phase: 2
+dependencies:
+  - "WSCL-001"
+parallelizable: false
+role: "builder"
+repository: "https://github.com/moruku36/web-security-control-lab"
+base_ref: "main"
+branch: "task/wscl-002-security-scanner"
+worktree: "runtime-root/worktrees/wscl-002"
+allowed_paths:
+  - "scanner/"
+  - "tests/"
+prohibited_paths:
+  - ".github/"
+  - "app/"
+validation:
+  - command_id: "ruff_lint"
+    timeout_seconds: 120
+  - command_id: "pytest_scanner"
+    timeout_seconds: 300
+  - command_id: "scanner_cli_smoke"
+    timeout_seconds: 120
+completion_criteria:
+  - id: "CC-1"
+    statement: "Scanner successfully identifies LAB-01 through LAB-06 in VULNERABLE mode"
+    evidence_type: "test_run"
+  - id: "CC-2"
+    statement: "Target validator strictly rejects non-localhost targets"
+    evidence_type: "test_run"
+  - id: "CC-3"
+    statement: "Ruff linter passes cleanly"
+    evidence_type: "lint_run"
+risk: "medium"
+approval:
+  before_execution: false
+  before_merge: true
+output_artifacts:
+  - kind: "scanner_report"
+    path: "reports/scan-wscl-002.json"
+    classification: "internal"
+resources:
+  ports:
+    - 8000
+  test_db: false
+  exclusive_keys:
+    - "scanner_lock"
+permissions:
+  - "default"
+retry:
+  max_attempts: 3
+  timeout_minutes: 15
+status: "DONE"
+state_ref: "state/tasks/WSCL-002.json"

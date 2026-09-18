@@ -1,0 +1,59 @@
+schema_version: "2020-12"
+id: "WSCL-003"
+title: "Security Control Remediation and Hardening (Reserved for Sonnet 5)"
+description: "Remediate intentional weaknesses LAB-01 through LAB-06 in app/ to transition into hardened security posture. Ensure scanner findings clear and regression tests pass."
+phase: 3
+dependencies:
+  - "WSCL-001"
+  - "WSCL-002"
+parallelizable: false
+role: "builder"
+repository: "https://github.com/moruku36/web-security-control-lab"
+base_ref: "main"
+branch: "task/wscl-003-security-remediation"
+worktree: "runtime-root/worktrees/wscl-003"
+allowed_paths:
+  - "app/"
+  - "tests/"
+prohibited_paths:
+  - ".github/"
+  - "scanner/"
+  - "factory/"
+validation:
+  - command_id: "ruff_lint"
+    timeout_seconds: 120
+  - command_id: "pytest_all"
+    timeout_seconds: 300
+  - command_id: "scanner_verification"
+    timeout_seconds: 120
+completion_criteria:
+  - id: "CC-1"
+    statement: "Scanner findings for LAB-01 through LAB-06 are resolved in HARDENED mode"
+    evidence_type: "test_run"
+  - id: "CC-2"
+    statement: "All unit and integration regression tests pass cleanly"
+    evidence_type: "test_run"
+  - id: "CC-3"
+    statement: "Ruff linter passes without regressions"
+    evidence_type: "lint_run"
+risk: "high"
+approval:
+  before_execution: true
+  before_merge: true
+output_artifacts:
+  - kind: "verification_bundle"
+    path: "reports/remediation-wscl-003.json"
+    classification: "internal"
+resources:
+  ports:
+    - 8000
+  test_db: true
+  exclusive_keys:
+    - "remediation_lock"
+permissions:
+  - "default"
+retry:
+  max_attempts: 2
+  timeout_minutes: 30
+status: "READY"
+state_ref: "state/tasks/WSCL-003.json"

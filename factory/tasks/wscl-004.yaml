@@ -1,0 +1,48 @@
+schema_version: "2020-12"
+id: "WSCL-004"
+title: "Documentation and Security Study Guides"
+description: "Comprehensive educational documentation covering architecture, lab usage, detailed security control explanations, and notes aligned with Information Security Specialist examination."
+phase: 4
+dependencies:
+  - "WSCL-001"
+  - "WSCL-002"
+parallelizable: true
+role: "builder"
+repository: "https://github.com/moruku36/web-security-control-lab"
+base_ref: "main"
+branch: "task/wscl-004-documentation"
+worktree: "runtime-root/worktrees/wscl-004"
+allowed_paths:
+  - "docs/"
+  - "README.md"
+  - "HANDOFF_TO_SONNET.md"
+prohibited_paths:
+  - "app/"
+  - "scanner/"
+  - ".github/"
+validation:
+  - command_id: "docs_check"
+    timeout_seconds: 60
+completion_criteria:
+  - id: "CC-1"
+    statement: "All 4 primary documentation files and handoff guide exist and are verified"
+    evidence_type: "file_exists"
+risk: "low"
+approval:
+  before_execution: false
+  before_merge: true
+output_artifacts:
+  - kind: "documentation"
+    path: "docs/"
+    classification: "public"
+resources:
+  ports: []
+  test_db: false
+  exclusive_keys: []
+permissions:
+  - "default"
+retry:
+  max_attempts: 2
+  timeout_minutes: 10
+status: "DONE"
+state_ref: "state/tasks/WSCL-004.json"
