@@ -31,6 +31,11 @@ dev = [
 [project.scripts]
 security-lab = "scanner.cli:main"
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*", "scanner*"]
+exclude = ["factory*", "docs*", "tests*"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"
