@@ -1,138 +1,204 @@
 """
-Vulnerability existence tests.
+Security control regression tests (LAB-01 through LAB-06).
 
-These tests verify that intentional security weaknesses (LAB-01 through LAB-06)
-are present in the default VULNERABLE mode.
+These tests pin the application to an explicit LAB_MODE via the
+`lab_mode_app` fixture (see tests/conftest.py) instead of relying on
+whatever LAB_MODE the test process happened to start with. That way:
 
-All tests PASS in VULNERABLE mode by asserting the presence of the misconfiguration.
-When transitioning to HARDENED mode in future phases (by Sonnet 5),
-the assertions check for secure controls.
+- The HARDENED-mode assertions are a hard regression requirement that runs
+  in every `pytest` invocation, regardless of ambient environment/CI
+  configuration.
+- The VULNERABLE-mode assertions document and continuously verify the
+  "before" state the lab is designed to teach, so the scanner's advertised
+  before/after comparison (HIGH:1 MEDIUM:4 LOW:1 -> 0/0/0) stays accurate.
 """
 
-from app.config import LAB_MODE, LabMode
+from starlette.testclient import TestClient
 
 
-def test_normal_user_can_access_admin_in_vulnerable_mode(client):
-    """
-    LAB-01: Broken Access Control
-    Verifies that a standard user (alice, role 'user') can access /admin.
-    """
-    # Authenticate as alice (standard non-admin user)
-    login_resp = client.post(
-        "/login",
-        data={"username": "alice", "password": "user"},
-        follow_redirects=False,
-    )
-    assert login_resp.status_code == 303
+def _new_client(app):
+    return TestClient(app, base_url="http://127.0.0.1:8000", cookies={})
 
-    admin_resp = client.get("/admin", follow_redirects=False)
 
-    if LAB_MODE == LabMode.HARDENED.value:
-        # Remediated expectation: Forbidden for non-admin
+# ---------------------------------------------------------------------------
+# LAB-01: Broken Access Control
+# ---------------------------------------------------------------------------
+
+
+def test_normal_user_forbidden_from_admin_in_hardened_mode(lab_mode_app):
+    app = lab_mode_app("HARDENED")
+    with _new_client(app) as client:
+        login_resp = client.post(
+            "/login", data={"username": "alice", "password": "user"}, follow_redirects=False
+        )
+        assert login_resp.status_code == 303
+
+        admin_resp = client.get("/admin", follow_redirects=False)
         assert admin_resp.status_code == 403
-    else:
-        # INTENTIONAL_VULNERABILITY_FOR_LOCAL_LAB: LAB-01
-        # In vulnerable mode, non-admin user can access /admin successfully (200 OK)
+
+
+def test_admin_user_allowed_on_admin_in_hardened_mode(lab_mode_app):
+    app = lab_mode_app("HARDENED")
+    with _new_client(app) as client:
+        login_resp = client.post(
+            "/login", data={"username": "admin", "password": "admin"}, follow_redirects=False
+        )
+        assert login_resp.status_code == 303
+
+        admin_resp = client.get("/admin", follow_redirects=False)
         assert admin_resp.status_code == 200
         assert "Administrative Control Dashboard" in admin_resp.text
 
 
-def test_session_cookie_missing_httponly(client):
-    """
-    LAB-02: Missing HttpOnly flag on session cookie
-    """
-    login_resp = client.post(
-        "/login",
-        data={"username": "alice", "password": "user"},
-        follow_redirects=False,
-    )
-    set_cookie = login_resp.headers.get("set-cookie", "").lower()
+def test_normal_user_can_access_admin_in_vulnerable_mode(lab_mode_app):
+    """Documents the pre-remediation weakness the lab teaches (LAB-01)."""
+    app = lab_mode_app("VULNERABLE")
+    with _new_client(app) as client:
+        login_resp = client.post(
+            "/login", data={"username": "alice", "password": "user"}, follow_redirects=False
+        )
+        assert login_resp.status_code == 303
 
-    if LAB_MODE == LabMode.HARDENED.value:
+        admin_resp = client.get("/admin", follow_redirects=False)
+        assert admin_resp.status_code == 200
+        assert "Administrative Control Dashboard" in admin_resp.text
+
+
+# ---------------------------------------------------------------------------
+# LAB-02 / LAB-03: Session Cookie Attributes
+# ---------------------------------------------------------------------------
+
+
+def test_session_cookie_hardened_attributes(lab_mode_app):
+    """LAB-02 HttpOnly and LAB-03 SameSite are both enforced when hardened."""
+    app = lab_mode_app("HARDENED")
+    with _new_client(app) as client:
+        login_resp = client.post(
+            "/login", data={"username": "alice", "password": "user"}, follow_redirects=False
+        )
+        set_cookie = login_resp.headers.get("set-cookie", "").lower()
+
         assert "httponly" in set_cookie
-    else:
-        # INTENTIONAL_VULNERABILITY_FOR_LOCAL_LAB: LAB-02
-        # HttpOnly flag is omitted, allowing potential DOM cookie access via XSS
-        assert "httponly" not in set_cookie
-
-
-def test_session_cookie_missing_samesite(client):
-    """
-    LAB-03: Missing / Weak SameSite policy on session cookie
-    """
-    login_resp = client.post(
-        "/login",
-        data={"username": "alice", "password": "user"},
-        follow_redirects=False,
-    )
-    set_cookie = login_resp.headers.get("set-cookie", "").lower()
-
-    if LAB_MODE == LabMode.HARDENED.value:
         assert "samesite=lax" in set_cookie or "samesite=strict" in set_cookie
-    else:
-        # INTENTIONAL_VULNERABILITY_FOR_LOCAL_LAB: LAB-03
-        # SameSite attribute is missing, leaving cookie vulnerable to CSRF
+
+
+def test_session_cookie_missing_flags_in_vulnerable_mode(lab_mode_app):
+    """Documents the pre-remediation weakness the lab teaches (LAB-02, LAB-03)."""
+    app = lab_mode_app("VULNERABLE")
+    with _new_client(app) as client:
+        login_resp = client.post(
+            "/login", data={"username": "alice", "password": "user"}, follow_redirects=False
+        )
+        set_cookie = login_resp.headers.get("set-cookie", "").lower()
+
+        assert "httponly" not in set_cookie
         assert "samesite=" not in set_cookie
 
 
-def test_csp_and_security_headers_missing(client):
-    """
-    LAB-04: Missing defensive security headers
-    """
-    resp = client.get("/health")
+# ---------------------------------------------------------------------------
+# LAB-04: Security Headers
+# ---------------------------------------------------------------------------
 
-    if LAB_MODE == LabMode.HARDENED.value:
+
+def test_security_headers_present_in_hardened_mode(lab_mode_app):
+    app = lab_mode_app("HARDENED")
+    with _new_client(app) as client:
+        resp = client.get("/health")
+
         assert "content-security-policy" in resp.headers
         assert "x-content-type-options" in resp.headers
+        assert resp.headers["x-content-type-options"].lower() == "nosniff"
         assert "referrer-policy" in resp.headers
-    else:
-        # INTENTIONAL_VULNERABILITY_FOR_LOCAL_LAB: LAB-04
-        # Defensive headers are intentionally absent
+
+
+def test_security_headers_missing_in_vulnerable_mode(lab_mode_app):
+    """Documents the pre-remediation weakness the lab teaches (LAB-04)."""
+    app = lab_mode_app("VULNERABLE")
+    with _new_client(app) as client:
+        resp = client.get("/health")
+
         assert "content-security-policy" not in resp.headers
         assert "x-content-type-options" not in resp.headers
         assert "referrer-policy" not in resp.headers
 
 
-def test_detailed_error_information_exposed(client):
-    """
-    LAB-05: Information Disclosure in diagnostic endpoint
-    """
-    resp = client.get("/api/diagnostic")
-    assert resp.status_code == 500
-    data = resp.json()
+# ---------------------------------------------------------------------------
+# LAB-05: Information Disclosure
+# ---------------------------------------------------------------------------
 
-    if LAB_MODE == LabMode.HARDENED.value:
+
+def test_diagnostic_endpoint_sanitized_in_hardened_mode(lab_mode_app):
+    app = lab_mode_app("HARDENED")
+    with _new_client(app) as client:
+        resp = client.get("/api/diagnostic")
+        assert resp.status_code == 500
+        data = resp.json()
+
         assert "traceback" not in data
         assert "server_environment" not in data
+        assert "stack" not in str(data).lower()
+        assert "/app/" not in str(data)
         assert data.get("error_code") == "ERR_INTERNAL_500"
-    else:
-        # INTENTIONAL_VULNERABILITY_FOR_LOCAL_LAB: LAB-05
-        # Diagnostic traceback and internal environment details are exposed
+
+
+def test_diagnostic_endpoint_exposed_in_vulnerable_mode(lab_mode_app):
+    """Documents the pre-remediation weakness the lab teaches (LAB-05)."""
+    app = lab_mode_app("VULNERABLE")
+    with _new_client(app) as client:
+        resp = client.get("/api/diagnostic")
+        assert resp.status_code == 500
+        data = resp.json()
+
         assert "traceback" in data
         assert "server_environment" in data
         assert data["server_environment"]["debug"] is True
 
 
-def test_failed_authentication_not_logged(client):
-    """
-    LAB-06: Authentication Logging Failure
-    Failed login attempts are not recorded in audit logs.
-    """
-    # Attempt failed login
-    login_resp = client.post(
-        "/login",
-        data={"username": "alice", "password": "wrong_password_attempt"},
-        follow_redirects=False,
-    )
-    assert login_resp.status_code == 401
+# ---------------------------------------------------------------------------
+# LAB-06: Authentication Logging
+# ---------------------------------------------------------------------------
 
-    logs_resp = client.get("/audit-logs")
-    logs = logs_resp.json().get("logs", [])
-    failure_logs = [log for log in logs if log.get("event_type") == "AUTH_FAILURE"]
 
-    if LAB_MODE == LabMode.HARDENED.value:
+def test_failed_authentication_logged_in_hardened_mode(lab_mode_app):
+    app = lab_mode_app("HARDENED")
+    with _new_client(app) as client:
+        wrong_password = "wrong_password_attempt"
+        login_resp = client.post(
+            "/login",
+            data={"username": "alice", "password": wrong_password},
+            follow_redirects=False,
+        )
+        assert login_resp.status_code == 401
+
+        logs_resp = client.get("/audit-logs")
+        raw_logs = logs_resp.json()
+        logs = raw_logs.get("logs", [])
+        failure_logs = [log for log in logs if log.get("event_type") == "AUTH_FAILURE"]
+
         assert len(failure_logs) >= 1
-    else:
-        # INTENTIONAL_VULNERABILITY_FOR_LOCAL_LAB: LAB-06
-        # In vulnerable mode, failed authentication produces no audit record
+
+        # Regression guard: audit log payload must never leak credentials or
+        # session material, even when recording a failed login attempt.
+        serialized_logs = str(raw_logs)
+        assert wrong_password not in serialized_logs
+        assert "password" not in serialized_logs.lower()
+        assert "session token" not in serialized_logs.lower()
+        assert "secret" not in serialized_logs.lower()
+
+
+def test_failed_authentication_not_logged_in_vulnerable_mode(lab_mode_app):
+    """Documents the pre-remediation weakness the lab teaches (LAB-06)."""
+    app = lab_mode_app("VULNERABLE")
+    with _new_client(app) as client:
+        login_resp = client.post(
+            "/login",
+            data={"username": "alice", "password": "wrong_password_attempt"},
+            follow_redirects=False,
+        )
+        assert login_resp.status_code == 401
+
+        logs_resp = client.get("/audit-logs")
+        logs = logs_resp.json().get("logs", [])
+        failure_logs = [log for log in logs if log.get("event_type") == "AUTH_FAILURE"]
+
         assert len(failure_logs) == 0
