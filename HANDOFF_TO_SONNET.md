@@ -2,6 +2,8 @@
 
 本ドキュメントは、Initial Builder（Google Antigravity）が構築した初期実装資産を、後工程の独立検証・セキュリティレビュー・改修を担当する **Claude Code / Sonnet 5** および **AI Engineering Factory** へ引き渡すための仕様書です。
 
+> **Completion note (2026-09-18):** この引き継ぎは完了済みです。PR #1でSonnet 5による独立レビューと回帰テスト強化を実施し、21 tests / Ruff / live scannerを確認しました。HARDENEDは HIGH=0 / MEDIUM=0 / LOW=0、VULNERABLEは HIGH=1 / MEDIUM=4 / LOW=1 を維持しています。本書は当時のhandoff contractを残す履歴資料として保持します。
+
 ---
 
 ## 1. 引き継ぎメタデータ (Metadata)
@@ -9,7 +11,7 @@
 - **対象ブランチ**: `main`
 - **初期構築担当 (Initial Builder)**: Google Antigravity
 - **引き継ぎ対象エージェント**: Claude Code / Sonnet 5
-- **ステータス**: `READY_FOR_INDEPENDENT_VERIFICATION`
+- **ステータス**: `COMPLETED`
 
 ---
 
@@ -26,7 +28,7 @@
 4. **AI Engineering Factory タスクマニフェスト (`factory/tasks/`)**:
    - `wscl-001.yaml` (Phase 1, DONE)
    - `wscl-002.yaml` (Phase 2, DONE)
-   - `wscl-003.yaml` (Phase 3, **READY - Sonnet 5 担当用に予約**)
+   - `wscl-003.yaml` (Phase 3, **DONE - Sonnet 5 independent review completed**)
    - `wscl-004.yaml` (Phase 4, DONE)
 
 ---
@@ -49,8 +51,8 @@
 
 ---
 
-## 4. Sonnet 5 の改修タスク目標 (Factory Task: `WSCL-003`)
-Sonnet 5 は Factory Task `WSCL-003` に従い、以下のセキュリティ改修を担当します:
+## 4. Sonnet 5 の改修タスク結果 (Factory Task: `WSCL-003`)
+Factory Task `WSCL-003` は完了済みです。当初は以下のセキュリティ改修を想定していましたが、独立レビューでInitial Builder側にHARDENED実装が既に存在することが判明したため、Sonnet 5は既存実装の確認とVULNERABLE/HARDENED双方の回帰テスト強化を中心に実施しました:
 1. `app/auth.py` および `app/main.py` を修正し、`HARDENED` モード（または安全なデフォルト）を完成させる:
    - `/admin` へのアクセス時に `role == 'admin'` を検証し、非管理者のアクセスを 403 Forbidden で拒絶する。
    - セッションCookie発行時に `HttpOnly=True` および `SameSite="lax"` を付与する。

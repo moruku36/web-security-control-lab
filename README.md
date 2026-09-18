@@ -160,8 +160,21 @@ security-lab scan http://127.0.0.1:8000 --format json
 本リポジトリは [ai-engineering-factory](https://github.com/moruku36/ai-engineering-factory) によるAIエージェントガバナンスに対応しています。
 - `factory/tasks/wscl-001.yaml`: 脆弱Webアプリケーション基盤（Phase 1: 完了）
 - `factory/tasks/wscl-002.yaml`: ローカルセキュリティスキャナ（Phase 2: 完了）
-- `factory/tasks/wscl-003.yaml`: セキュリティ改修・堅牢化（Phase 3: **Claude Code / Sonnet 5 担当用に予約**）
+- `factory/tasks/wscl-003.yaml`: セキュリティ改修・独立検証（Phase 3: **DONE — Claude Code / Sonnet 5 review completed in PR #1**）
 - `factory/tasks/wscl-004.yaml`: 学習・教育ドキュメント一式（Phase 4: 完了）
+
+### 実戦検証結果
+
+Phase 3では、Initial BuilderがHARDENED実装まで先取りしていたことを独立レビューで検出しました。Sonnet 5は既存のHARDENED実装を再実装するのではなく、VULNERABLE/HARDENED双方の回帰テストを強化し、PR #1で検証を完了しています。
+
+現在のCIは、単体・結合テストに加えて実際にアプリを両モードで起動し、ローカルスキャナの期待値を機械検証します。
+
+| Mode | Expected scanner result |
+| :--- | :--- |
+| `VULNERABLE` | HIGH 1 / MEDIUM 4 / LOW 1 |
+| `HARDENED` | HIGH 0 / MEDIUM 0 / LOW 0 |
+
+この実験から得たPhase Boundary / Human Merge Boundaryの知見は、[AI Engineering Factory の Case Study](https://github.com/moruku36/ai-engineering-factory/blob/main/docs/case-studies/web-security-control-lab.md) に整理しています。
 
 ---
 
@@ -171,7 +184,7 @@ security-lab scan http://127.0.0.1:8000 --format json
 - [docs/LAB_GUIDE.md](docs/LAB_GUIDE.md): 各脆弱性の手動再現・観察・検証手順
 - [docs/SECURITY_CONTROLS.md](docs/SECURITY_CONTROLS.md): 各セキュリティ統制の理論・検知ロジック・修正コード・OWASP対応
 - [docs/SECURITY_SPECIALIST_NOTES.md](docs/SECURITY_SPECIALIST_NOTES.md): 情報処理安全確保支援士（登録セキスペ）試験対策ノート
-- [HANDOFF_TO_SONNET.md](HANDOFF_TO_SONNET.md): Sonnet 5 / Claude Code への改修引き継ぎ書
+- [HANDOFF_TO_SONNET.md](HANDOFF_TO_SONNET.md): Sonnet 5 / Claude Code への引き継ぎ記録と完了結果
 
 ---
 
