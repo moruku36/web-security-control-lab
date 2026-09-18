@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <h2>Administrative Control Dashboard</h2>
+    <p>Welcome to the Administrative Dashboard.</p>
+    <table>
+        <tr>
+            <th>Current User</th>
+            <td>{{ user.username }}</td>
+        </tr>
+        <tr>
+            <th>Role</th>
+            <td><code>{{ user.role }}</code></td>
+        </tr>
+        <tr>
+            <th>Admin Status</th>
+            <td>
+                {% if user.role == 'admin' %}
+                    <span style="color: #166534; font-weight: bold;">Authorized Administrator</span>
+                {% else %}
+                    <span style="color: #991b1b; font-weight: bold;">
+                        VULNERABILITY DETECTED: Non-admin accessed admin page!
+                    </span>
+                {% endif %}
+            </td>
+        </tr>
+    </table>
+    <div style="margin-top: 20px;">
+        <a href="/profile"><button>Back to Profile</button></a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <h2>User Profile</h2>
+    <table>
+        <tr>
+            <th>User ID</th>
+            <td>{{ user.id }}</td>
+        </tr>
+        <tr>
+            <th>Username</th>
+            <td>{{ user.username }}</td>
+        </tr>
+        <tr>
+            <th>Display Name</th>
+            <td>{{ user.display_name }}</td>
+        </tr>
+        <tr>
+            <th>Assigned Role</th>
+            <td><code>{{ user.role }}</code></td>
+        </tr>
+    </table>
+    <p style="margin-top: 20px;">
+        <a href="/admin"><button>Attempt Admin Dashboard Access</button></a>
+    </p>
+</div>
+{% endblock %}
