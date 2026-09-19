@@ -21,6 +21,33 @@ Webアプリケーションのセキュリティ設定ミスや認証・認可�
 
 ## アーキテクチャ (Architecture)
 
+![Web Security Control Lab Architecture](docs/assets/architecture-diagram.jpg)
+
+### Architecture Description
+
+The `web-security-control-lab` environment is organized into four core functional subsystems designed for hands-on security control experimentation, automated vulnerability scanning, and governance:
+
+1. **Target Web Application (`app/` - FastAPI)**:
+   - Serves both public and protected endpoints including `/` (home), `/login`, `/logout`, `/profile`, `/admin`, `/health`, `/api/diagnostic`, and `/audit-logs`.
+   - Supports two runtime modes:
+     - `VULNERABLE`: Contains intentional security vulnerabilities and misconfigurations across access controls, session attributes, headers, and error handling.
+     - `HARDENED`: Activates robust security controls and mitigations (strict RBAC, HttpOnly/SameSite cookies, defensive security headers, sanitised diagnostics, and comprehensive audit logging).
+2. **Datastore (`db` - SQLite `app.db`)**:
+   - Manages user accounts, active sessions, and security audit logs via internal SQL operations.
+   - The datastore is strictly private to the web application; the security scanner has no direct database access.
+3. **Security Scanner (`scanner/` - Python CLI)**:
+   - Enforces a fail-closed safety boundary that strictly permits scanning against `localhost` only, rejecting external addresses with exit code 2.
+   - Runs automated vulnerability checks (`LAB-01` through `LAB-06`) via standard HTTP requests against the running target application (`localhost:8000`).
+   - Produces structured diagnostic reports in both plain text and JSON formats:
+     - **VULNERABLE mode**: Identifies 6 security issues (1 HIGH, 4 MEDIUM, 1 LOW).
+     - **HARDENED mode**: Confirms 0 findings (all checks pass cleanly).
+4. **CI/CD Automation & Factory Governance**:
+   - **GitHub Actions (`.github/workflows/ci.yml`)**: Executes Ruff static analysis, Pytest unit/integration tests across Python 3.11 and 3.12, and live vulnerability scans to assert expected detection outcomes in both operational modes.
+   - **AI Engineering Factory (`factory/tasks/`)**: Provides declarative task contracts (`WSCL-001` through `WSCL-004`) for verifiable AI-assisted development and remediation.
+
+<details>
+<summary>Interactive Mermaid Diagram</summary>
+
 ```mermaid
 flowchart LR
     subgraph Target["脆弱Webアプリケーション (FastAPI)"]
@@ -46,6 +73,8 @@ flowchart LR
     Factory -.->|独立検証| Target
     Factory -.->|独立検証| Scanner
 ```
+
+</details>
 
 ---
 
