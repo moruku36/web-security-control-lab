@@ -45,7 +45,7 @@ flowchart LR
         Validator -->|許可| Audits --> Report
     end
 
-    subgraph Factory["ガバナンス (AI Engineering Factory)"]
+    subgraph Factory["ガバナンス (AI Governance Control)"]
         Tasks["タスクマニフェスト (WSCL-001..004)"]
         Gate["品質ゲート (pytest / ruff / scan)"]
     end
@@ -163,9 +163,9 @@ security-lab scan http://127.0.0.1:8000 --format json
 
 ---
 
-## AI Engineering Factory との開発フロー
+## AI Governance Control との開発フロー
 
-本リポジトリは [ai-engineering-factory](https://github.com/moruku36/ai-engineering-factory) によるAIエージェントガバナンスに対応しています。
+本リポジトリは [AI Governance Control](https://github.com/moruku36/ai-engineering-factory) によるAIエージェントガバナンスに対応しています。
 - `factory/tasks/wscl-001.yaml`: 脆弱Webアプリケーション基盤（Phase 1: 完了）
 - `factory/tasks/wscl-002.yaml`: ローカルセキュリティスキャナ（Phase 2: 完了）
 - `factory/tasks/wscl-003.yaml`: セキュリティ改修・独立検証（Phase 3: **DONE — Claude Code / Sonnet 5 review completed in PR #1**）
@@ -182,7 +182,7 @@ Phase 3では、Initial BuilderがHARDENED実装まで先取りしていたこ�
 | `VULNERABLE` | HIGH 1 / MEDIUM 4 / LOW 1 |
 | `HARDENED` | HIGH 0 / MEDIUM 0 / LOW 0 |
 
-この実験から得たPhase Boundary / Human Merge Boundaryの知見は、[AI Engineering Factory の Case Study](https://github.com/moruku36/ai-engineering-factory/blob/main/docs/case-studies/web-security-control-lab.md) に整理しています。
+この実験から得たPhase Boundary / Human Merge Boundaryの知見は、[AI Governance Control の Case Study](https://github.com/moruku36/ai-engineering-factory/blob/main/docs/case-studies/web-security-control-lab.md) に整理しています。
 
 ---
 
@@ -221,7 +221,7 @@ web-security-control-lab/
 │   ├── vulnerabilities/       # 意図的脆弱性の存在確認テスト
 │   └── conftest.py            # テスト用フィクスチャ
 ├── docs/                      # 技術解説・学習ノート
-├── factory/                   # AI Engineering Factory タスクマニフェスト
+├── factory/                   # AI Governance Control タスクマニフェスト
 ├── docker-compose.yml         # コンテナ起動定義
 ├── Dockerfile                 # コンテナイメージビルド定義
 ├── HANDOFF_TO_SONNET.md       # Sonnet 5 向け引き継ぎ書

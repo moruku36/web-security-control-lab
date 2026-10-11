@@ -37,7 +37,7 @@ flowchart TD
         ScanEngine --> Reporter
     end
 
-    subgraph FactoryContainer ["AI Engineering Factory ガバナンス"]
+    subgraph FactoryContainer ["AI Governance Control ガバナンス"]
         Manifest["factory/tasks/wscl-*.yaml"]
         Verifier["独立検証器 (ruff, pytest, scanner)"]
         Bundle["エビデンスバンドル & ダイジェスト"]
