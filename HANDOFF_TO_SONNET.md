@@ -1,6 +1,6 @@
 # Claude Code / Sonnet 5 向け引き継ぎ書 (Handoff to Sonnet 5)
 
-本ドキュメントは、Initial Builder（Google Antigravity）が構築した初期実装資産を、後工程の独立検証・セキュリティレビュー・改修を担当する **Claude Code / Sonnet 5** および **AI Engineering Factory** へ引き渡すための仕様書です。
+本ドキュメントは、Initial Builder（Google Antigravity）が構築した初期実装資産を、後工程の独立検証・セキュリティレビュー・改修を担当する **Claude Code / Sonnet 5** および **AI Governance Control** へ引き渡すための仕様書です。
 
 > **Completion note (2026-09-18):** この引き継ぎは完了済みです。PR #1でSonnet 5による独立レビューと回帰テスト強化を実施し、21 tests / Ruff / live scannerを確認しました。HARDENEDは HIGH=0 / MEDIUM=0 / LOW=0、VULNERABLEは HIGH=1 / MEDIUM=4 / LOW=1 を維持しています。本書は当時のhandoff contractを残す履歴資料として保持します。
 
@@ -25,7 +25,7 @@
    - テキスト/JSON出力対応CLI (`scanner/cli.py`, `scanner/reporter.py`)。
 3. **自動検証テストスイート (`tests/`)**:
    - 16件の自動テスト（結合テスト、スキャナ単体テスト、意図的脆弱性の存在確認テスト）。
-4. **AI Engineering Factory タスクマニフェスト (`factory/tasks/`)**:
+4. **AI Governance Control タスクマニフェスト (`factory/tasks/`)**:
    - `wscl-001.yaml` (Phase 1, DONE)
    - `wscl-002.yaml` (Phase 2, DONE)
    - `wscl-003.yaml` (Phase 3, **DONE - Sonnet 5 independent review completed**)
