@@ -146,12 +146,18 @@ Summary
   MEDIUM: 4
   LOW: 1
 ```
+(上は従来の主要行です。実際の出力には、対象・モード・範囲の注記、各チェックの PASS/FAIL/ERROR、`Status` の件数、完了/未完了の説明が加わります。)
 
 ### 機械可読な JSON 出力
 CIやAIパイプライン向けの構造化出力が可能です。
 ```bash
-security-lab scan http://127.0.0.1:8000 --format json
+security-lab scan http://127.0.0.1:8000 --format json --expected-mode VULNERABLE
 ```
+
+JSON は schema 2.0 です。従来の `target`・`findings`・`summary` を保持し、`schema_version`・`mode`・`generated_at`・`checks`・`status_summary` を追加しました。各チェックは PASS(条件を満たす)、FAIL(弱点を観測)、ERROR(前提を確立できず未完了)のいずれかです。終了コードは、`0`: レポート完了(弱点の観測を含む)、`1`: サブコマンドなし、`2`: 対象の拒否・引数エラー、`3`: 検査が未完了またはランタイムエラーです。未完了の検査で `3` を返すのは意図的な変更で、以前は想定外の応答で `0` になり得ました。JSON を厳密な形で読む利用者は移行が必要です。対象 URL は `scheme://host[:port]` のみ受け付け、認証情報・パス・クエリ・フラグメントを含むものは送信前に拒否します。
+`--expected-mode VULNERABLE|HARDENED` は CI が意図するモードを明示します。`mode` は対象が報告した値で、独立に証明されたものではありません。ERROR は成功ではなく、検出0件も本番での安全性を意味しません。
+
+LAB-01 の学習用[ワークシート](docs/worksheets/LAB01.ja.md)と、別ファイルの[解答例](docs/solutions/LAB01.ja.md)があります。
 
 ---
 

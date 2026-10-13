@@ -13,6 +13,7 @@ whatever LAB_MODE the test process happened to start with. That way:
   before/after comparison (HIGH:1 MEDIUM:4 LOW:1 -> 0/0/0) stays accurate.
 """
 
+import pytest
 from starlette.testclient import TestClient
 
 
@@ -62,6 +63,30 @@ def test_normal_user_can_access_admin_in_vulnerable_mode(lab_mode_app):
         admin_resp = client.get("/admin", follow_redirects=False)
         assert admin_resp.status_code == 200
         assert "Administrative Control Dashboard" in admin_resp.text
+
+
+@pytest.mark.parametrize("mode", ["VULNERABLE", "HARDENED"])
+def test_logged_out_token_is_rejected_when_replayed(lab_mode_app, mode):
+    """Logout deletes the server-side session record in both modes (old-token oracle)."""
+    app = lab_mode_app(mode)
+    with _new_client(app) as client:
+        login_resp = client.post(
+            "/login", data={"username": "alice", "password": "user"}, follow_redirects=False
+        )
+        token = login_resp.cookies.get("lab_session")
+        assert token
+        assert client.get("/api/profile").json()["username"] == "alice"
+
+        logout_resp = client.get("/logout", follow_redirects=False)
+        assert logout_resp.status_code == 303
+        assert logout_resp.headers["location"] == "/login"
+
+    with _new_client(app) as replay:
+        replay.cookies.set("lab_session", token)
+        assert replay.get("/api/profile").status_code == 401
+        admin_resp = replay.get("/admin", follow_redirects=False)
+        assert admin_resp.status_code == 303
+        assert admin_resp.headers["location"] == "/login"
 
 
 # ---------------------------------------------------------------------------
