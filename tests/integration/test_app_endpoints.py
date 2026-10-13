@@ -51,6 +51,20 @@ def test_login_success_and_profile_access(client):
     assert user_data["role"] == "user"
 
 
+def test_admin_login_identity(client):
+    login_resp = client.post(
+        "/login",
+        data={"username": "admin", "password": "admin"},
+        follow_redirects=False,
+    )
+    assert login_resp.status_code == 303
+    assert login_resp.headers["location"] == "/profile"
+
+    user_data = client.get("/api/profile").json()
+    assert user_data["username"] == "admin"
+    assert user_data["role"] == "admin"
+
+
 def test_logout_clears_session(client):
     # Login first
     client.post(

@@ -1,12 +1,39 @@
-"""Command Line Interface for Web Security Control Lab Scanner."""
+"""Command Line Interface for Web Security Control Lab Scanner.
+
+Exit codes: 0 completed report (observed weaknesses included), 1 no subcommand,
+2 target refusal or argument error, 3 incomplete inspection or runtime error.
+"""
 
 import argparse
 import sys
+from urllib.parse import urlparse
 
-from scanner.checks import run_all_checks
-from scanner.models import ScanReport
-from scanner.reporter import compute_summary, format_json_report, format_text_report
+from scanner.checks import run_inspection
+from scanner.models import MODES, ReasonCode, build_error_report
+from scanner.reporter import format_json_report, format_text_report
 from scanner.target import validate_target_url
+
+URL_FORM_MESSAGE = (
+    "Refusing target. Use a bare base URL of the form scheme://host[:port] "
+    "without credentials, path, query or fragment."
+)
+
+
+def normalize_base_url(validated_url: str) -> str:
+    """Return scheme://host[:port], or raise ValueError for any other URL form.
+
+    Nothing from a refused URL is echoed back.
+    """
+    if "?" in validated_url or "#" in validated_url or "@" in validated_url:
+        raise ValueError(URL_FORM_MESSAGE)
+    parsed = urlparse(validated_url)
+    try:
+        parsed.port
+    except ValueError:
+        raise ValueError(URL_FORM_MESSAGE) from None
+    if parsed.path not in ("", "/") or parsed.params or not parsed.netloc:
+        raise ValueError(URL_FORM_MESSAGE)
+    return f"{parsed.scheme}://{parsed.netloc}"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -27,11 +54,17 @@ def build_parser() -> argparse.ArgumentParser:
         default="text",
         help="Output presentation format (default: text)",
     )
+    scan_parser.add_argument(
+        "--expected-mode",
+        choices=list(MODES),
+        default=None,
+        help="Mode the target is expected to report; a mismatch makes every check ERROR.",
+    )
 
     return parser
 
 
-def main(args=None) -> int:
+def main(args=None, transport=None, clock=None) -> int:
     parser = build_parser()
     parsed_args = parser.parse_args(args)
 
@@ -40,28 +73,33 @@ def main(args=None) -> int:
         return 1
 
     if parsed_args.command == "scan":
-        target = parsed_args.target
-        # Validate target under Fail-Closed policy
+        # Validate target under Fail-Closed policy before any request
         try:
-            validated_url = validate_target_url(target)
+            validated_url = validate_target_url(parsed_args.target)
+            base_url = normalize_base_url(validated_url)
         except ValueError as e:
             print(f"Error: {e}", file=sys.stderr)
             return 2
 
         try:
-            findings = run_all_checks(validated_url)
-        except Exception as e:
-            print(f"Scan failed: {e}", file=sys.stderr)
-            return 3
-
-        summary = compute_summary(findings)
-        report = ScanReport(target=validated_url, findings=findings, summary=summary)
+            report = run_inspection(
+                base_url,
+                expected_mode=parsed_args.expected_mode,
+                transport=transport,
+                clock=clock,
+            )
+        except Exception:
+            # Fixed message only: exception text is never printed.
+            report = build_error_report(base_url, ReasonCode.UNEXPECTED_RESPONSE, clock=clock)
 
         if parsed_args.format == "json":
             print(format_json_report(report))
         else:
             print(format_text_report(report))
 
+        if report.has_errors:
+            print("Inspection incomplete: at least one check reported ERROR.", file=sys.stderr)
+            return 3
         return 0
 
     return 0
