@@ -400,13 +400,25 @@ def test_wrong_profile_identity_is_a_login_precondition_failure():
 
 def test_anonymous_admin_200_is_fail_with_highest_precedence():
     lab = FakeLab("HARDENED")
-    lab.when("GET", "/admin", "anon", lambda r: httpx.Response(200, text=ADMIN_HTML))
+    served = []
+
+    def first_anonymous_probe_only(request):
+        # Keep the later logged-out token replay on the normal denial path.
+        if served:
+            return None
+        served.append(request)
+        return httpx.Response(200, text=ADMIN_HTML)
+
+    lab.when("GET", "/admin", "anon", first_anonymous_probe_only)
     report = scan(lab)
 
     lab01 = check(report, "LAB-01")
     assert lab01.status == CheckStatus.FAIL
     assert lab01.reason_code == ReasonCode.ANON_ADMIN_ACCESS
+    assert lab01.evidence["incomplete"] is False
     assert [f.lab_id for f in report.findings] == ["LAB-01"]
+    assert [path for _, path, _ in lab.requests].count("/admin") == 4
+    assert len(served) == 1
 
 
 def test_anonymous_401_is_conservatively_error():
