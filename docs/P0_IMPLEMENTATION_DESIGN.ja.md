@@ -27,6 +27,8 @@ P0は既存httpx MockTransportとpytestで実装でき、新dependencyは不要�
 ## 検査の契約
 
 1. 最初の送信前に既存validatorで対象を検証します。CLIにURL形式guardを加え、userinfo/query/fragment/非root base pathを送信前にexit2で拒否します。hostname方針は維持し、`target`にはscheme/host/portのみを記録します。全リクエストは検証済みbase URLに限定して明示的に`follow_redirects=False`とします。指定相対path`/login`か`/profile`のみ受理し、authority/scheme/query/fragmentを許可しません。絶対/protocol-relative redirect、別path、不正LocationはERRORにし、移動先へ送信しません。既存timeoutと合成認証情報のみを使います。
+
+   匿名・user・admin・旧token再利用を含む全スキャナHTTP clientに、明示的な`trust_env=False`を必須とします。[HTTPXの環境変数公式文書](https://www.python-httpx.org/environment_variables/)は環境設定を既定で使用し、`HTTP_PROXY`・`HTTPS_PROXY`・`ALL_PROXY`も対象と説明しています。現行`httpx.Client(timeout=5.0)`は無効化しておらず、NO_PROXYがなければloopback URL検証だけではproxy経由の送信を防げません。OS/ユーザー環境設定を変更せず、明示proxyも導入せず、NO_PROXYに依存せず、client単位で境界を保ちます。この要件は未実装の提案です。
 2. `/health`の200、JSON object、`service=web-security-control-lab`、VULNERABLE/HARDENEDのmodeを要求します。任意CLI引数`--expected-mode VULNERABLE|HARDENED`でCIの意図を指定します。不一致なら全6ERROR・後続送信なしとし、観測された有効modeをレポートに残します。引数なしでは応答mode記録だけで、操作者の意図を確認したとは主張しません。
 3. roleごとに新しい隔離clientを使います。loginは303→`/profile`、対象Cookie`lab_session`、`/api/profile`の200と想定username/role（`alice`/`user`、`admin`/`admin`）を要求します。前提の欠落・不正はERRORで、認可成功やCookie属性不備と解釈しません。
 4. LAB-01は以下の表とリソースの本人性（200時の想定adminページmarker）を検証し、statusだけでは判断しません。誤ったfixtureや無関係HTMLはERRORです。匿名観測に認証済みsessionが混ざらないよう別clientを使います。
@@ -95,6 +97,7 @@ live jobは両test jobをneedsに持ち、job-level`if: always()`を使います
 - 未知evidenceキー/長すぎるstring/投入したcanary秘密を拒否する。件数不変のID/重要度入替、check順序、注入UTC clock、exit全4種類、CI expected-mode引数、上流skipped/cancelledを検証する。日英worksheetのheading/hint/rubric IDを比較する。
 - URL userinfo/query/fragment/非root pathを送信・内容出力前に拒否し、厳格なbase URL形式をschema2移行の変更点として記載する。
 - logout500/不正Location、事前に本人性未確認のtoken再利用をPASSにしない。回帰作成前に失効処理のsource chainを確認し、全JSON例を正確なschemaで検証する。
+- 合成proxy環境回帰を追加する。test範囲のmonkeypatchで`HTTP_PROXY`・`HTTPS_PROXY`・`ALL_PROXY`をダミー外部proxy宛先に設定し、大文字/小文字NO_PROXYを未設定にし、小文字proxy変数も扱う。全role/replay clientの`trust_env=False`と、proxy transport/connectionの生成・接触がないことを検証する。client構築とtransport選択/接続試行を計測し、MockTransport出力だけを隔離証明にしない。全network操作をstub化して実proxyの名前解決・接触を一切せず、test後に環境を復元する。OS/global設定は変更しない。
 
 ## LAB-01教材と学習面の受入条件
 
@@ -111,5 +114,7 @@ live jobは両test jobをneedsに持ち、job-level`if: always()`を使います
 Claude実装前の独立設計レビューで、判定/exit互換、期待表、証拠機密除去、CI失敗保持、技術/学習分離の指摘を解消します。指摘と対応はdraft PRで記録し、ここで捏造しません。
 
 レビュー対応（文書のみ）: 初回の契約に関する9阻害指摘を修正。2回目はその修正を確認しつつ、証拠キーの厳密定義と確認済みtoken/logout手順の2点を残したため、上記で明示的に修正しました。2点修正後は阻害なしという条件付き評価で、最終編集への3回目reviewは実施していません。reviewerはアプリtest・教育評価を実行していません。実装前に人がこの対応を確認してください。
+
+親の最終reviewではHTTPX proxy環境継承によるlocal対象境界の不足も指摘されました。上記の`trust_env=False`契約と合成proxy隔離受入条件で設計を修正し、実装と他の最終review確認は引き続き待ちます。
 
 Claude引継ぎ: レビュー済みcommitから別branchで承認P0だけを実装し、既存指示を確認して他作業を保全します。既存の正規Claude CLI/session権限を使い、権限bypass、session乗っ取り、認証情報コピー、新認証/課金setupをしません。非対話編集/tool権限拒否が出たらその操作を止め、報告します。diff、実際のtest証拠、限界、draft PRを人のreviewへ返し、mergeしません。CLIの存在だけでは無人実装の権限確認になりません。
