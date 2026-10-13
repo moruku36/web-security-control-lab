@@ -66,9 +66,9 @@ SameSite未指定だけでCSRFが成立すると断定できません。ブラ�
 | P0: 信頼できる判定 | チェック単位のPASS/FAIL/ERROR、理由・証拠、schema version | `/health`のserviceと想定mode、login303・`lab_session`・`/api/profile`の`alice`/`user`を先に確認する。VULNERABLEの6LAB IDと重要度の完全一致、HARDENEDの空結果を要求する。全6項目に判定を持たせ、前提不成立・想定外fixture/status・ログ取得不能・timeoutはPASSにしない。negative fixtureで検証し、例外と制御不備を区別する。text/JSON互換方針を記す |
 | P0: role/sessionの証拠 | 既存アプリテストを拡張するスキャナの認可表とlogout回帰 | `/admin`は両modeで匿名303→`/login`、aliceはVULNERABLE200/HARDENED403、adminは両mode200。logout後に旧合成tokenを再利用しても認証されない。ログイン/profile/logoutの正当利用を保つ |
 | P0: 再現できる証拠 | 両JSON、pytest結果、commit SHA、mode、command、runtime/依存版、UTC時刻、判定を含む機密除去済み成果物 | レポート生成済みなら検証失敗時も保存し、未生成なら機密を除いたエラー記録を残す。token・password・実在の人物・私的ログを公開しない。保持期間とアクセス方針を記し、既存件数条件にID/重要度一致を加える |
-| P1: 挙動と正当利用 | 本人性を確認した認可表、Cookie値解析、代表応答のポリシー、合成監査イベントの対応づけ | 未認証は想定ログイン導線となり、HARDENEDでは一般ユーザー拒否・管理者許可となる。ログイン/profile/logoutが機能する。弱いCookie値・無効なヘッダー値を検出する。LAB-05の想定エラー形式・LAB-06のログ取得成立を要求する。ブラウザー依存の主張にはバージョンと条件を添える |
+| P1: 制御の意味の深化 | Cookie値解析、代表応答policy、合成監査イベント対応づけ、P0外のbrowser条件 | 本人性/role/logoutと診断/log前提は既にP0。P1の残作業は弱いCookie値・無効なheader policy検出、対象応答拡張、特定合成event対応づけ。browser依存の主張には版/条件を添える |
 | P0: LAB-01ワークシート | 予測・観察・原因・修正選択/理由・再検証・紙上ownership転移課題。solutionを分離する | 実行前にrole表を記録し、機密を除いた証拠を示す。制御/修正箇所、拒否と正当成功、残る限界を説明する。任意ヒントはidentityとpermissionの違い→admin handler→3role検証の3段階。技術レポートと学習記録を分離する |
-| P1: スキャナ堅牢性 | MockTransportテストと1制御ずつの意図的mutation | login失敗、不正Cookie、想定外診断status、ログ取得不能、timeoutが仕様の判定になる。各人工欠陥を対応チェックで検出し、生き残ったmutationを報告する。実世界recallは主張しない |
+| P1: mutation範囲拡張 | P0 mock外の1制御ずつの意図的mutationと深い意味の検証 | 前提/role/エラーのMockTransportは既にP0。P1は6制御のmutation検出感度と弱い値/policy fixtureを加え、生き残ったmutationを報告する。実世界recallは主張しない |
 | P1: 小規模usability pilot | 将来の同意に基づく合成演習、事前事後の平行課題、遅延説明 | 収集前にrubric/課題を定義し、人数・欠測・ヒント・得点を報告する。満足度と成績を分け、選択/練習の影響を記す。本書は参加者募集・個人情報収集を許可するものではない |
 | P2: 検証範囲拡張 | 純粋関数propertyテスト、session状態model、別途許可された隔離local ZAP比較 | 性質と期待session遷移を指定し、生成URL入力は送信しない。将来のZAP crawlは許可local範囲を守り既知の期待値と比較する。比較やpilotから本番安全性・因果的教育効果を主張しない |
 

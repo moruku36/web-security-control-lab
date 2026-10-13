@@ -59,11 +59,13 @@ P0は既存httpx MockTransportとpytestで実装でき、新dependencyは不要�
 
 両modeで同じ条件を使い、modeはCI期待値を選ぶだけです。集約優先度は**ERROR > FAIL > PASS**。不備観測後に一部検査が失敗したら旧finding/重要度は残し、判定をERROR、`evidence.incomplete=true`、exit3とします。ERRORでfindingを消しません。各LABは`checks`1回、`findings`最大1回。複数LAB-01不備は1HIGH findingにまとめます。不備reasonの優先順は`ANON_ADMIN_ACCESS` > `USER_ADMIN_ACCESS` > `SESSION_RETAINED`で、観測不備すべてを許可済み`evidence.reasons`に残します。不完全なcheckのreason_codeは最初の前提/runtimeエラーです。health失敗は全6ERRORとし後続送信なし、role login失敗は依存check ERROR、独立checkは継続可能。raw bodyは保存しません。
 
-集約LAB-01 findingのmessageは最優先の観測不備の固定文とし、checkがERRORでも保持します。
+集約LAB-01の旧Findingは実在する`description`/`details`に最優先の観測不備の固定説明を入れ、checkがERRORでも保持します。Findingに`message`項目はなく、新check判定だけが`message`を持ちます。
 
 ## schemaと終了コードの互換性
 
 top-levelの`target`、`findings`、`summary`（`high/medium/low`）と全Finding項目を保持します。`schema_version: "2.0"`、`mode`（local対象の自己申告で独立証明ではない）、`generated_at`（注入可能clockのUTC ISO 8601）、`checks`、`status_summary`（`pass/fail/error`）を追加します。checkは`lab_id`、`status`、安定した`reason_code`、固定templateの`message`、許可限定`evidence`を持ちます。evidenceの正確なキーは`observations`（最大16記録）、`verified`/`incomplete`（boolean）、`mode`（VULNERABLE/HARDENED/null）、`reasons`（最大16中央reason enum）です。observationキーは`actor`（anonymous/user/admin/user_old_token）、`endpoint`（`/health`、`/login`、`/api/profile`、`/admin`、`/logout`、`/api/diagnostic`、`/audit-logs`）、`status`（100–599整数）、任意`redirect`（正確な`/login`か`/profile`）だけです。未知/入れ子追加キー、自由文、128文字超stringを拒否します。認証情報、Cookie/token値、raw応答、学習者名、local path、実在の人物は含めず、CI来歴は別に記録します。
+
+evidence必須キーは`observations`、`incomplete`、`reasons`で、観測不能ならlist空を許可します。`verified`/`mode`は任意です。observationはactor/endpoint/status必須、redirect任意。上記report/check項目は必須で、report modeはnullを許可します。例でverified/modeがない理由はこの任意指定です。
 
 合成例: `{"lab_id":"LAB-01","status":"FAIL","reason_code":"USER_ADMIN_ACCESS","message":"Non-admin user can access the admin page","evidence":{"observations":[{"actor":"user","endpoint":"/admin","status":200}],"incomplete":false,"reasons":["USER_ADMIN_ACCESS"]}}`。login前提不成立はERROR、`reason_code="LOGIN_PRECONDITION_FAILED"`です。重要度summaryはfindingのみ、status_summaryは6判定を集計し、ERRORがあればfindings空でも不成立です。
 
