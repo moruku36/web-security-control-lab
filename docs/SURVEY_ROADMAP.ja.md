@@ -4,6 +4,8 @@
 
 確認日: 2026-10-13。対象コミット: `b61488a07c378f0d9a67196c3fed0c549418643e`。本書は文書上の提案であり、実装完了や学習者実験の報告ではありません。公開情報と合成の教材例のみを使用し、職場での成果や教育効果を主張しません。
 
+[P0改修設計とClaude引継ぎ](P0_IMPLEMENTATION_DESIGN.ja.md)では初回実装をLAB-01、検査前提、ID/重要度一致の証拠、CI artifactに絞り、変更ファイル、schema/exit互換、受入テスト、独立レビューの境界を具体化しています。
+
 ## 実装済みの現状と証拠の限界
 
 FastAPI/SQLiteの教材には、6種類の意図的な制御不備、`VULNERABLE`/`HARDENED`モード、ローカル対象スキャナ、合成の認証情報・診断データ、text/JSON出力があります。[アプリ](../app/main.py)、[認証](../app/auth.py)、[検査](../scanner/checks.py)、[対象検証](../scanner/target.py)、[実習ガイド](LAB_GUIDE.md)を参照してください。

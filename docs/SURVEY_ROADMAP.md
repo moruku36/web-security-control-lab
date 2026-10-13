@@ -4,6 +4,8 @@
 
 Reviewed on 2026-10-13 against commit `b61488a07c378f0d9a67196c3fed0c549418643e`. This is a documentation proposal, not an implementation or a report of a learner study. Only public sources and synthetic lab examples are used. No workplace outcomes or educational effects are claimed.
 
+The [P0 implementation design and Claude handoff](P0_IMPLEMENTATION_DESIGN.md) narrows the first implementation to LAB-01, inspection prerequisites, exact ID/severity evidence, and CI artifacts. It specifies files, schema/exit compatibility, acceptance tests, and the independent-review boundary.
+
 ## Implemented baseline and evidence limits
 
 The FastAPI/SQLite lab has six intentional control weaknesses, `VULNERABLE` and `HARDENED` modes, a local-target scanner, synthetic credentials and diagnostics, and text/JSON reports. See [application](../app/main.py), [authentication](../app/auth.py), [scanner checks](../scanner/checks.py), [target validation](../scanner/target.py), and [lab guide](LAB_GUIDE.md).
