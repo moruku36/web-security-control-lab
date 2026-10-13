@@ -188,6 +188,8 @@ Phase 3では、Initial BuilderがHARDENED実装まで先取りしていたこ�
 
 ## 学習ガイド・関連ドキュメント (Documentation)
 
+[調査と改修ロードマップ](docs/SURVEY_ROADMAP.ja.md)（[English](docs/SURVEY_ROADMAP.md)）では、実装済みの現状と未実装の提案を分け、予測→観察→原因説明→修正→再検証→限界の説明を測定可能な学習目標として設計しています。ローカル教材の6項目で検出0件という結果は、本番環境の安全性を証明しません。提案の実装と教育効果の検証は今後の課題です。
+
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): システム構成と安全境界アーキテクチャの解説
 - [docs/LAB_GUIDE.md](docs/LAB_GUIDE.md): 各脆弱性の手動再現・観察・検証手順
 - [docs/SECURITY_CONTROLS.md](docs/SECURITY_CONTROLS.md): 各セキュリティ統制の理論・検知ロジック・修正コード・OWASP対応
