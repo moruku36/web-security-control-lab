@@ -6,6 +6,8 @@
 2. **セキュリティ統制スキャナ (`scanner/`)**: `localhost` 以外へのリクエストを確実に遮断するFail-Closedな安全境界を備えたPython製CLIツール。
 3. **ガバナンス・独立検証レイヤー (`factory/` および `ai-engineering-factory`)**: 宣言的な機械可読タスクマニフェストと、再現可能なテスト・リントによる品質ゲート。
 
+![Web Security Control Lab Architecture](assets/architecture-diagram.jpg)
+
 ## システム相互作用図 (System Interaction Diagram)
 
 ```mermaid
