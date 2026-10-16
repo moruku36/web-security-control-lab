@@ -39,8 +39,16 @@ docker compose up --build
   3. `VULNERABLE` モードでは、ロールが `user` であるにもかかわらずHTTP 200で管理者パネルが表示されることを確認。
 - **スキャナでの検知**:
   ```bash
-  security-lab scan http://127.0.0.1:8000
+  security-lab scan http://127.0.0.1:8000 --expected-mode VULNERABLE
   ```
+  LAB-01 は、未認証・`alice`・`admin` の `/admin` と、`alice` のログアウト後トークンの再利用を確認します。各チェックの結果は PASS(条件を満たす)、FAIL(弱点を観測)、ERROR(前提を確立できず未完了)のいずれかです。ERROR は成功ではありません。
+- **学習用ワークシート**: [ワークシート(日本語)](worksheets/LAB01.ja.md) / [Worksheet (English)](worksheets/LAB01.md)。答えは別ファイルの [解答例](solutions/LAB01.ja.md) / [Solution](solutions/LAB01.md) にあります。先に自分で予測・観察してから読んでください。
+
+### スキャナーの終了コードとレポート形式 (schema 2.0)
+- `0`: レポート完了(弱点を観測した場合を含む)。`1`: サブコマンドなし。`2`: 対象の拒否または引数エラー。`3`: 検査が未完了(いずれかのチェックが ERROR)またはランタイムエラー。以前は想定外の応答でも終了コード 0 になり得たため、`3` は意図的な変更です。
+- `scan` の対象は `scheme://host[:port]` のみです。認証情報・パス・クエリ・フラグメントを含む URL は、送信前に終了コード 2 で拒否されます。
+- JSON には従来の `target`、`findings`、`summary` に加え、`schema_version`、`mode`(対象が報告した値で、運用者の意図の検証ではありません)、`generated_at`、`checks`、`status_summary` が含まれます。`--expected-mode` を指定すると、不一致は全チェック ERROR になります。
+- `findings` が空でも ERROR があれば未完了です。検出0件は本番環境の安全性を意味しません。
 
 ### LAB-02: Missing HttpOnly Flag（Cookie保護不備）
 - **現象**: セッションCookieに `HttpOnly` 属性が付与されておらず、JavaScriptからセッションIDを読み取れる。

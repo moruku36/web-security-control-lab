@@ -24,9 +24,371 @@ jobs:
           pip install -e .[dev]
 
       - name: Run Ruff Lint
-        run: |
-          ruff check .
+        run: ruff check .
 
       - name: Run Pytest
+        run: pytest -v
+
+  python-312-compat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
         run: |
-          pytest -v
+          python -m pip install --upgrade pip
+          pip install -e .[dev]
+
+      - name: Run Pytest on Python 3.12
+        run: pytest -q
+
+  live-security-scan:
+    runs-on: ubuntu-latest
+    needs: [lint-and-test, python-312-compat]
+    # Run even when an upstream job failed so that evidence is retained; the final gate
+    # below fails the job unless every required component succeeded.
+    if: always()
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev]
+
+      - name: Write evidence helper
+        run: |
+          cat > "$RUNNER_TEMP/evidence_tool.py" <<'PY'
+          """Verify, describe and redaction-check scan evidence (allowlist schemas first)."""
+          import json
+          import os
+          import platform
+          import re
+          import sys
+          from datetime import datetime, timezone
+          from importlib import metadata
+          from pathlib import Path
+
+          from scanner.models import build_error_report, validate_report
+
+          EVIDENCE = Path("evidence")
+          PORTS = {"VULNERABLE": 8000, "HARDENED": 8001}
+          REPORT_FILES = {
+              "vulnerable-scan.json": "VULNERABLE",
+              "hardened-scan.json": "HARDENED",
+          }
+          EXPECTED_VULNERABLE = {
+              "LAB-01": "HIGH",
+              "LAB-02": "MEDIUM",
+              "LAB-03": "MEDIUM",
+              "LAB-04": "MEDIUM",
+              "LAB-05": "LOW",
+              "LAB-06": "MEDIUM",
+          }
+          COMMANDS = [
+              "security-lab scan http://127.0.0.1:8000 --format json --expected-mode VULNERABLE",
+              "security-lab scan http://127.0.0.1:8001 --format json --expected-mode HARDENED",
+          ]
+          PACKAGES = [
+              "fastapi", "uvicorn", "jinja2", "python-multipart", "httpx",
+              "pyyaml", "pytest", "ruff", "jsonschema",
+          ]
+          JOB_RESULTS = {"success", "failure", "cancelled", "skipped"}
+          SHA = re.compile(r"^[0-9a-f]{40}$")
+          VERSION = re.compile(r"^[0-9A-Za-z.+!_-]{1,32}$")
+          # Defense in depth only: allowlist validation above is the primary control.
+          SECRET_PATTERNS = re.compile(
+              r"lab_session|set-cookie|password|secret|token=|authorization|bearer |"
+              r"/home/|/users/|[a-z]:\\|[0-9a-f]{48,}",
+              re.IGNORECASE,
+          )
+
+
+          def load_report(path):
+              try:
+                  data = json.loads(Path(path).read_text(encoding="utf-8"))
+                  validate_report(data)
+                  return data
+              except Exception:
+                  return None
+
+
+          def verify(mode, path):
+              data = load_report(path)
+              if data is None:
+                  fallback = build_error_report(f"http://127.0.0.1:{PORTS[mode]}")
+                  Path(path).write_text(json.dumps(fallback.to_dict(), indent=2), encoding="utf-8")
+                  print(f"{mode}: no valid report; sanitized error record saved")
+                  return 1
+              problems = []
+              status = data["status_summary"]
+              if data["mode"] != mode:
+                  problems.append("reported mode differs")
+              if status["error"]:
+                  problems.append("ERROR checks present")
+              if mode == "VULNERABLE":
+                  actual = {f["lab_id"]: f["severity"] for f in data["findings"]}
+                  if actual != EXPECTED_VULNERABLE or len(data["findings"]) != 6:
+                      problems.append("LAB ID/severity mapping differs")
+                  if status != {"pass": 0, "fail": 6, "error": 0}:
+                      problems.append("expected six FAIL")
+                  if data["summary"] != {"high": 1, "medium": 4, "low": 1}:
+                      problems.append("severity summary differs")
+              else:
+                  if data["findings"]:
+                      problems.append("findings present")
+                  if status != {"pass": 6, "fail": 0, "error": 0}:
+                      problems.append("expected six PASS")
+                  if data["summary"] != {"high": 0, "medium": 0, "low": 0}:
+                      problems.append("severity summary differs")
+              if problems:
+                  print(f"{mode}: verification failed: {'; '.join(problems)}")
+                  return 1
+              print(f"{mode}: verified")
+              return 0
+
+
+          def provenance():
+              env = os.environ
+              versions = {}
+              for name in PACKAGES:
+                  try:
+                      versions[name] = metadata.version(name)
+                  except metadata.PackageNotFoundError:
+                      pass
+              data = {
+                  "pr_head_sha": env.get("PR_HEAD_SHA") or None,
+                  "workflow_sha": env.get("WORKFLOW_SHA", ""),
+                  "checkout_sha": env.get("CHECKOUT_SHA", ""),
+                  "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                  "commands": COMMANDS,
+                  "modes": ["VULNERABLE", "HARDENED"],
+                  "python_version": platform.python_version(),
+                  "dependency_versions": versions,
+                  "upstream_job_results": {
+                      "lint-and-test": env.get("UPSTREAM_LINT", ""),
+                      "python-312-compat": env.get("UPSTREAM_312", ""),
+                  },
+              }
+              validate_provenance(data)
+              EVIDENCE.mkdir(exist_ok=True)
+              (EVIDENCE / "provenance.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
+              print("provenance written")
+              return 0
+
+
+          def validate_provenance(data):
+              expected = {
+                  "pr_head_sha", "workflow_sha", "checkout_sha", "generated_at", "commands",
+                  "modes", "python_version", "dependency_versions", "upstream_job_results",
+              }
+              if not isinstance(data, dict) or set(data) != expected:
+                  raise ValueError("provenance keys")
+              if data["pr_head_sha"] is not None and not SHA.match(data["pr_head_sha"]):
+                  raise ValueError("pr_head_sha")
+              for key in ("workflow_sha", "checkout_sha"):
+                  if not isinstance(data[key], str) or not SHA.match(data[key]):
+                      raise ValueError(key)
+              if not re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", data["generated_at"]):
+                  raise ValueError("generated_at")
+              if data["commands"] != COMMANDS or data["modes"] != ["VULNERABLE", "HARDENED"]:
+                  raise ValueError("commands/modes")
+              if not re.match(r"^\d+\.\d+\.\d+$", data["python_version"]):
+                  raise ValueError("python_version")
+              deps = data["dependency_versions"]
+              if not isinstance(deps, dict) or not set(deps) <= set(PACKAGES):
+                  raise ValueError("dependency names")
+              if not all(isinstance(v, str) and VERSION.match(v) for v in deps.values()):
+                  raise ValueError("dependency versions")
+              jobs = data["upstream_job_results"]
+              if set(jobs) != {"lint-and-test", "python-312-compat"}:
+                  raise ValueError("upstream jobs")
+              if not all(v in JOB_RESULTS for v in jobs.values()):
+                  raise ValueError("upstream result values")
+
+
+          def redact():
+              failed = False
+              for path in sorted(EVIDENCE.iterdir()):
+                  ok = False
+                  try:
+                      text = path.read_text(encoding="utf-8")
+                      if path.name in REPORT_FILES:
+                          validate_report(json.loads(text))
+                          ok = True
+                      elif path.name == "provenance.json":
+                          validate_provenance(json.loads(text))
+                          ok = True
+                      ok = ok and not SECRET_PATTERNS.search(text)
+                  except Exception:
+                      ok = False
+                  if not ok:
+                      failed = True
+                      path.unlink()
+                      print(f"{path.name}: failed sanitization and was excluded")
+              print("redaction check failed" if failed else "redaction check passed")
+              return 1 if failed else 0
+
+
+          def selftest():
+              canaries = ["lab_session=CANARY", "Set-Cookie: x", "a" * 48, "C:\\Users\\x", "/home/runner"]
+              missed = [c for c in canaries if not SECRET_PATTERNS.search(c)]
+              if missed:
+                  print("canary patterns not detected")
+                  return 1
+              print("canary patterns detected")
+              return 0
+
+
+          COMMANDS_TABLE = {
+              "verify": lambda a: verify(a[0], a[1]),
+              "provenance": lambda a: provenance(),
+              "redact": lambda a: redact(),
+              "selftest": lambda a: selftest(),
+          }
+
+          if __name__ == "__main__":
+              sys.exit(COMMANDS_TABLE[sys.argv[1]](sys.argv[2:]))
+          PY
+
+      - name: Scan VULNERABLE mode
+        id: vulnerable
+        continue-on-error: true
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p evidence
+          LAB_MODE=VULNERABLE uvicorn app.main:app --host 127.0.0.1 --port 8000 > "$RUNNER_TEMP/uvicorn-vulnerable.log" 2>&1 &
+          PID=$!
+          trap 'kill "$PID" 2>/dev/null || true' EXIT
+
+          ready=0
+          for _ in {1..30}; do
+            if curl -fsS http://127.0.0.1:8000/health >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 0.5
+          done
+
+          rc=3
+          if [ "$ready" = 1 ]; then
+            rc=0
+            security-lab scan http://127.0.0.1:8000 --format json --expected-mode VULNERABLE > evidence/vulnerable-scan.json || rc=$?
+          fi
+          vrc=0
+          python "$RUNNER_TEMP/evidence_tool.py" verify VULNERABLE evidence/vulnerable-scan.json || vrc=$?
+          echo "scan exit code: $rc"
+          [ "$rc" = 0 ] && [ "$vrc" = 0 ]
+
+      - name: Scan HARDENED mode
+        id: hardened
+        continue-on-error: true
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p evidence
+          LAB_MODE=HARDENED uvicorn app.main:app --host 127.0.0.1 --port 8001 > "$RUNNER_TEMP/uvicorn-hardened.log" 2>&1 &
+          PID=$!
+          trap 'kill "$PID" 2>/dev/null || true' EXIT
+
+          ready=0
+          for _ in {1..30}; do
+            if curl -fsS http://127.0.0.1:8001/health >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 0.5
+          done
+
+          rc=3
+          if [ "$ready" = 1 ]; then
+            rc=0
+            security-lab scan http://127.0.0.1:8001 --format json --expected-mode HARDENED > evidence/hardened-scan.json || rc=$?
+          fi
+          vrc=0
+          python "$RUNNER_TEMP/evidence_tool.py" verify HARDENED evidence/hardened-scan.json || vrc=$?
+          echo "scan exit code: $rc"
+          [ "$rc" = 0 ] && [ "$vrc" = 0 ]
+
+      - name: Write provenance
+        id: provenance
+        continue-on-error: true
+        if: always()
+        shell: bash
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          WORKFLOW_SHA: ${{ github.sha }}
+          UPSTREAM_LINT: ${{ needs.lint-and-test.result }}
+          UPSTREAM_312: ${{ needs.python-312-compat.result }}
+        run: |
+          set -euo pipefail
+          export CHECKOUT_SHA="$(git rev-parse HEAD)"
+          python "$RUNNER_TEMP/evidence_tool.py" provenance
+
+      - name: Redaction check
+        id: redact
+        continue-on-error: true
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          python "$RUNNER_TEMP/evidence_tool.py" selftest
+          python "$RUNNER_TEMP/evidence_tool.py" redact
+
+      - name: Upload sanitized evidence
+        id: upload
+        continue-on-error: true
+        if: always() && steps.redact.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: scan-evidence
+          path: evidence/
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Evidence gate
+        if: always()
+        shell: bash
+        env:
+          UPSTREAM_LINT: ${{ needs.lint-and-test.result }}
+          UPSTREAM_312: ${{ needs.python-312-compat.result }}
+          OUTCOME_VULNERABLE: ${{ steps.vulnerable.outcome }}
+          OUTCOME_HARDENED: ${{ steps.hardened.outcome }}
+          OUTCOME_PROVENANCE: ${{ steps.provenance.outcome }}
+          OUTCOME_REDACT: ${{ steps.redact.outcome }}
+          OUTCOME_UPLOAD: ${{ steps.upload.outcome }}
+        run: |
+          # continue-on-error steps report conclusion=success; only `outcome` is the raw result.
+          failed=0
+          for name in UPSTREAM_LINT UPSTREAM_312 OUTCOME_VULNERABLE OUTCOME_HARDENED OUTCOME_PROVENANCE OUTCOME_REDACT OUTCOME_UPLOAD; do
+            value="${!name}"
+            if [ "$value" != "success" ]; then
+              echo "::error::$name=$value (expected success)"
+              failed=1
+            fi
+          done
+          python "$RUNNER_TEMP/evidence_tool.py" verify VULNERABLE evidence/vulnerable-scan.json || failed=1
+          python "$RUNNER_TEMP/evidence_tool.py" verify HARDENED evidence/hardened-scan.json || failed=1
+          if [ "$failed" != 0 ]; then
+            echo "Evidence gate failed"
+            exit 1
+          fi
+          echo "Evidence gate passed"
