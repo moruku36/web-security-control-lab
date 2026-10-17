@@ -1,6 +1,6 @@
 # LAB-04 header check: empty-value detection (candidate note)
 
-Status: **verified by public CI for head commit `78f6f41f02019e15db9e064fbea70087c1395559`** (run 38829563151) and code commit `bfc58e9e594444f45ec414fd84ef6103eb3a7ad0` (run 38829238455; see "CI evidence"). The test suite (103 passed) and Ruff lint were verified locally via the repository virtual environment (`.\.venv`), while unactivated system Python reproduced the missing-module state. The pull request ([#9](https://github.com/moruku36/web-security-control-lab/pull/9)) is Draft and unmerged.
+Status: **verified by public CI for head commit `78f6f41f02019e15db9e064fbea70087c1395559`** (run 38829563151) and code commit `bfc58e9e594444f45ec414fd84ef6103eb3a7ad0` (run 38829238455; see "CI evidence"). The test suite (103 passed) and Ruff lint were verified locally via the repository virtual environment (`.\.venv`), while unactivated system Python reproduced the missing-module state. During initial verification, pull request [#9](https://github.com/moruku36/web-security-control-lab/pull/9) was Draft and unmerged; it has since been merged into main (merge commit `6661da49e72d61d40b774dadeae184956fc92819`).
 
 ## Scope of the change
 
