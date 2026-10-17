@@ -20,6 +20,18 @@ The scanner validates its localhost-only boundary. Use `docker-compose.yml`, the
 - [scanner/](scanner)
 - [tests/](tests)
 
+## Architecture overview
+
+![Web Security Control Lab architecture diagram](docs/assets/architecture-diagram.jpg)
+
+The lab has three parts that run on your own machine:
+
+- **Target application (`app/`, FastAPI)** serves the lab endpoints and runs in a `VULNERABLE` mode with intentional weaknesses or a `HARDENED` mode with the corresponding controls applied. It keeps its test data in SQLite, which only the application accesses.
+- **Scanner (`scanner/`, Python CLI)** sends HTTP requests to the running application, checks the six local controls (LAB-01 to LAB-06) and reports PASS, FAIL or ERROR for each. It refuses targets outside localhost.
+- **Automation (`.github/workflows/ci.yml`, `factory/`)** runs lint, tests and local scans in CI, and holds the task manifests used for AI-assisted changes.
+
+The diagram is an overview; [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (Japanese) has the detailed interaction diagram. The six checks cover a limited local scope, so a clean scan does not establish that an application is secure.
+
 ## Detailed documentation
 
 The [research and improvement roadmap](docs/SURVEY_ROADMAP.md) ([日本語](docs/SURVEY_ROADMAP.ja.md)) separates the implemented baseline from proposed changes and defines measurable learning objectives: predict, observe, explain the cause, repair, reverify, and explain the remaining limits. Zero findings for the six local checks is not evidence of production security. The proposed changes and educational effectiveness have not yet been validated.
