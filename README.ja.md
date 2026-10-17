@@ -4,12 +4,8 @@
 
 脆弱なWebアプリの観察、問題の検出、原因分析、修正、再検証を一連の流れで学ぶ、localhost専用のセキュリティ検証環境です。
 
----
-
-# Web Security Control Lab
-
 [![CI](https://github.com/moruku36/web-security-control-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/moruku36/web-security-control-lab/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 
 Webアプリケーションのセキュリティ設定ミスや認証・認可不備を、**脆弱版 &rarr; 検出 &rarr; 分析 &rarr; 修正 &rarr; 再検証**という一連のサイクルで学習・検証できるローカル専用の小型Security Labです。
 
@@ -31,28 +27,37 @@ Webアプリケーションのセキュリティ設定ミスや認証・認可�
 
 ```mermaid
 flowchart LR
-    subgraph Target["脆弱Webアプリケーション (FastAPI)"]
-        Endpoints["/login<br/>/profile<br/>/admin<br/>/health<br/>/api/diagnostic"]
-        Store[("SQLite (テストデータ)")]
-        Endpoints --- Store
+    User["ブラウザ / curl / pytest"]
+
+    subgraph Host["ローカルマシン (localhost のみ)"]
+        subgraph App["対象アプリ app/ (FastAPI :8000)"]
+            Routes["エンドポイント<br/>/ /login /logout /profile<br/>/api/profile /admin /health<br/>/api/diagnostic /audit-logs"]
+            Mode{"LAB_MODE<br/>VULNERABLE / HARDENED"}
+            DB[("SQLite<br/>既定はインメモリ")]
+            Routes --- Mode
+            Routes --- DB
+        end
+
+        subgraph Scanner["スキャナ scanner/ (CLI: security-lab scan)"]
+            Validator{"対象URL検証<br/>localhost 限定 / Fail-Closed"}
+            Checks["検査 LAB-01..06<br/>(PASS / FAIL / ERROR)"]
+            Report["レポート (Text / JSON 2.0)"]
+            Refuse["拒否 (終了コード 2)"]
+            Validator -->|許可| Checks --> Report
+            Validator -->|拒否| Refuse
+        end
     end
 
-    subgraph Scanner["ローカルセキュリティスキャナ"]
-        Validator{"安全境界検証<br/>(localhost限定)"}
-        Audits["検査エンジン<br/>LAB-01..06"]
-        Report["検出結果出力<br/>(Text / JSON)"]
-
-        Validator -->|許可| Audits --> Report
+    subgraph Auto["自動化"]
+        CI["GitHub Actions ci.yml<br/>ruff / pytest (3.11, 3.12)<br/>live-security-scan"]
+        Factory["factory/tasks/wscl-001..004.yaml<br/>(タスクマニフェスト)"]
     end
 
-    subgraph Factory["ガバナンス (AI Governance Control)"]
-        Tasks["タスクマニフェスト (WSCL-001..004)"]
-        Gate["品質ゲート (pytest / ruff / scan)"]
-    end
-
-    Target <-->|ローカルHTTP通信| Scanner
-    Factory -.->|独立検証| Target
-    Factory -.->|独立検証| Scanner
+    User -->|HTTP| Routes
+    Checks -->|ローカルHTTPのみ| Routes
+    CI -.->|両モードで起動してスキャン| App
+    CI -.-> Scanner
+    Factory -.->|AI支援開発の定義| CI
 ```
 
 ---
@@ -86,7 +91,7 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```bash
 docker compose up --build
 ```
-起動後、ブラウザで `http://127.0.0.1:8000` にアクセスします。
+起動後、ブラウザで `http://127.0.0.1:8000` にアクセスします。Compose で起動するのは対象アプリ（コンテナ名 `web-security-control-lab-app`）のみです。スキャナはホスト側（またはアプリと同じ Docker ネットワーク内）で `security-lab` コマンドとして実行します。
 
 ---
 
@@ -164,7 +169,7 @@ LAB-01 の学習用[ワークシート](docs/worksheets/LAB01.ja.md)と、別フ
 ## 安全設計と制約 (Safety Boundary)
 
 本プロジェクトは安全な教育・自己学習専用です。誤用や不正利用を防止するため、以下の防護策をハードコードしています。
-- **Fail-Closed な対象検証**: スキャナは `localhost`、`127.0.0.1`、`::1`、またはDocker内部ネットワーク以外へのリクエストを即座に拒否（終了コード 2）します。
+- **Fail-Closed な対象検証**: スキャナは `localhost`、ループバックIP（`127.0.0.1`、`::1` など）、Composeのコンテナ名 `web-security-control-lab-app` 以外への対象指定を、リクエスト送信前に拒否（終了コード 2）します。
 - **禁止事項**: 外部ホストのスキャン、攻撃ペイロードの自動生成、リモート悪用コード、本番ネットワークへの配備。
 
 ---
@@ -196,7 +201,7 @@ Phase 3では、Initial BuilderがHARDENED実装まで先取りしていたこ�
 
 [調査と改修ロードマップ](docs/SURVEY_ROADMAP.ja.md)（[English](docs/SURVEY_ROADMAP.md)）では、実装済みの現状と未実装の提案を分け、予測→観察→原因説明→修正→再検証→限界の説明を測定可能な学習目標として設計しています。ローカル教材の6項目で検出0件という結果は、本番環境の安全性を証明しません。提案の実装と教育効果の検証は今後の課題です。
 
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): システム構成と安全境界アーキテクチャの解説
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): システム構成と安全境界アーキテクチャの解説（Mermaid図）
 - [docs/LAB_GUIDE.md](docs/LAB_GUIDE.md): 各脆弱性の手動再現・観察・検証手順
 - [docs/SECURITY_CONTROLS.md](docs/SECURITY_CONTROLS.md): 各セキュリティ統制の理論・検知ロジック・修正コード・OWASP対応
 - [docs/SECURITY_SPECIALIST_NOTES.md](docs/SECURITY_SPECIALIST_NOTES.md): 情報処理安全確保支援士（登録セキスペ）試験対策ノート
@@ -234,6 +239,7 @@ web-security-control-lab/
 ├── Dockerfile                 # コンテナイメージビルド定義
 ├── HANDOFF_TO_SONNET.md       # Sonnet 5 向け引き継ぎ書
 ├── pyproject.toml             # プロジェクト設定・依存関係
-├── README.md                  # プロジェクト総合ガイド
+├── README.md                  # 英語版ガイド（概要）
+├── README.ja.md               # 日本語版ガイド（本書・詳細）
 └── SECURITY.md                # セキュリティポリシー
 ```
