@@ -383,20 +383,35 @@ def _check_headers(
     mode: str, headers: httpx.Headers, health_obs: List[Dict[str, Any]]
 ) -> _Builder:
     b = _Builder("LAB-04", mode)
+    description = "Content-Security-Policy is missing"
 
     def inspect() -> None:
+        nonlocal description
         for obs in health_obs:
             b.observe(obs)
         missing = [name for name in REQUIRED_HEADERS if name.lower() not in headers]
-        if missing:
+        # A present header whose value is empty or whitespace-only is not an effective header.
+        empty = [
+            name
+            for name in REQUIRED_HEADERS
+            if name not in missing and not headers.get(name, "").strip()
+        ]
+        if missing or empty:
             b.weak(ReasonCode.HEADER_MISSING)
-            b.details = f"Missing defensive headers: {', '.join(missing)}"
+            parts = []
+            if missing:
+                parts.append(f"Missing defensive headers: {', '.join(missing)}")
+            if empty:
+                parts.append(f"Empty defensive headers: {', '.join(empty)}")
+            b.details = "; ".join(parts)
+            first = next(n for n in REQUIRED_HEADERS if n in missing or n in empty)
+            description = f"{first} is {'missing' if first in missing else 'empty'}"
 
     b.guard(inspect)
     b.lab_finding = (
         "Security Header",
         Severity.MEDIUM,
-        "Content-Security-Policy is missing",
+        description,
         "Missing defensive headers",
     )
     return b

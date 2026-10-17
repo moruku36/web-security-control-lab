@@ -579,6 +579,61 @@ def test_header_check_fails_when_any_header_is_missing():
     assert "Referrer-Policy" in finding.details
 
 
+def _health_with_headers(headers):
+    lab = FakeLab("HARDENED")
+    lab.when(
+        "GET",
+        "/health",
+        None,
+        lambda r: httpx.Response(
+            200,
+            json={"service": "web-security-control-lab", "mode": "HARDENED"},
+            headers=headers,
+        ),
+    )
+    return scan(lab)
+
+
+FULL_HEADERS = {
+    "Content-Security-Policy": "default-src 'self'",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+}
+
+
+@pytest.mark.parametrize(
+    "override,description,detail",
+    [
+        ({"Content-Security-Policy": ""}, "Content-Security-Policy is empty", "Empty"),
+        ({"Referrer-Policy": "   "}, "Referrer-Policy is empty", "Empty"),
+        ({"X-Content-Type-Options": None}, "X-Content-Type-Options is missing", "Missing"),
+        ({"Content-Security-Policy": None}, "Content-Security-Policy is missing", "Missing"),
+    ],
+)
+def test_header_check_names_the_actual_missing_or_empty_header(override, description, detail):
+    headers = {**FULL_HEADERS, **override}
+    headers = {k: v for k, v in headers.items() if v is not None}
+    report = _health_with_headers(headers)
+
+    lab04 = check(report, "LAB-04")
+    assert lab04.status == CheckStatus.FAIL
+    assert lab04.reason_code == ReasonCode.HEADER_MISSING
+    finding = next(f for f in report.findings if f.lab_id == "LAB-04")
+    assert finding.description == description
+    name = next(iter(override))
+    assert name in finding.details and detail in finding.details
+    others = [n for n in FULL_HEADERS if n != name]
+    assert not any(n in finding.details for n in others)
+    validate_report(report.to_dict())
+
+
+def test_header_check_passes_with_non_empty_values_and_preserves_vulnerable_wording():
+    assert check(_health_with_headers(FULL_HEADERS), "LAB-04").status == CheckStatus.PASS
+    vulnerable = scan(FakeLab("VULNERABLE"))
+    finding = next(f for f in vulnerable.findings if f.lab_id == "LAB-04")
+    assert finding.description == "Content-Security-Policy is missing"
+
+
 def test_diagnostic_wrong_status_or_unknown_shape_is_error():
     for make in (
         lambda r: httpx.Response(200, json={"ok": True}),
