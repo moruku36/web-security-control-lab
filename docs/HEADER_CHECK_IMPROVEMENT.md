@@ -9,7 +9,7 @@ Two files only:
 - `scanner/checks.py`: `_check_headers` (and the LAB-04 finding description it feeds).
 - `tests/unit/test_scanner_checks.py`: new LAB-04 regression tests using the existing `FakeLab` / `httpx.MockTransport`.
 
-Not changed: `scanner/models.py`, schema version (2.0), reason codes (still 13), fixed reason messages, evidence schema, cookie/SameSite logic, the application, CI, other docs.
+Not changed: `scanner/models.py`, schema version (2.0), reason codes (still 13 at the time of this change; 14 since the LAB-03 SameSite value validation), fixed reason messages, evidence schema, cookie/SameSite logic, the application, CI, other docs.
 
 ## Changed behavior
 

@@ -2,11 +2,30 @@
 
 [English](SURVEY_ROADMAP.md) | [日本語](SURVEY_ROADMAP.ja.md)
 
+> **状況（2026-10-22時点。main `a5c32bf` と、本注記と同時に追加したLAB-03の値検証）。** 本書のP0提案は実装済みです。次の段落の確認日と基点 `b61488a` は当初のもので、以下の本文は履歴として当初の提案文を残しています。基点の状態を述べた記述（チェック単位の結果なし、artifact uploadなし、LAB-03は「存在のみ」）は、この表で置き換えられています。教育効果は未評価です。
+>
+> | 項目 | 状況 | 場所 |
+> | --- | --- | --- |
+> | schema 2.0、チェック単位のPASS/FAIL/ERROR、理由コード、検査前提、`--expected-mode`、終了コード3 | 実装済み（PR #8、`036572d`、2026-10-13マージ） | `scanner/models.py`、`scanner/checks.py`、`scanner/cli.py` |
+> | LAB-01のロール表（匿名・user・admin）とログアウト後の旧トークン再利用 | 実装済み（PR #8） | `scanner/checks.py` の `_check_lab01`、`tests/unit/test_scanner_checks.py` |
+> | サニタイズ済みCI証拠: 両モードのレポート、provenance、redaction確認、7日保持の `scan-evidence`、evidence gate | 実装済み（PR #8） | `.github/workflows/ci.yml` |
+> | LAB-01の日英ワークシートと別冊の解答例 | 実装済み（PR #8） | `docs/worksheets/`、`docs/solutions/` |
+> | 空・空白のみの防御ヘッダー値（LAB-04の不足の一部） | 実装済み（PR #9、#10） | [HEADER_CHECK_IMPROVEMENT](HEADER_CHECK_IMPROVEMENT.md) |
+> | READMEの日英整合とMermaid構成図 | 完了（PR #11）。その後、生成したSVG図に置き換え | `README.md`、`docs/diagrams/` |
+> | LAB-03のSameSite値検証（Lax/Strict。None・空・未知の値はFAIL。判断できないCookieはERROR）、理由コード13から14へ | 本変更で実装 | `scanner/checks.py` の `_check_samesite` |
+> | Mermaid編集元とPele生成SVGの図、再生成スクリプト | 本変更で実装 | `docs/diagrams/`、`docs/assets/`、`tools/diagrams/` |
+> | LAB-04のポリシー値の解析（CSPの意味、応答範囲） | 未実装 | 残課題 |
+> | LAB-06で特定の合成監査イベントを対応づける検査 | 未実装（件数の増加のみ） | 残課題 |
+> | LAB-02で `Set-Cookie` が重複する場合のCookie単位の解析 | 未実装（LAB-02は最初の `lab_session` ヘッダーで属性名を探す） | 残課題 |
+> | ブラウザーでの検証、1制御ずつの変異テスト、ユーザビリティ試行、property test、隔離ZAP比較 | 未実装 | 残課題（P1/P2） |
+
 確認日: 2026-10-13。対象コミット: `b61488a07c378f0d9a67196c3fed0c549418643e`。本書は文書上の提案であり、実装完了や学習者実験の報告ではありません。公開情報と合成の教材例のみを使用し、職場での成果や教育効果を主張しません。
 
 [P0改修設計とClaude引継ぎ](P0_IMPLEMENTATION_DESIGN.ja.md)では初回実装をLAB-01、検査前提、ID/重要度一致の証拠、CI artifactに絞り、変更ファイル、schema/exit互換、受入テスト、独立レビューの境界を具体化しています。
 
 ## 実装済みの現状と証拠の限界
+
+*履歴: この節は `b61488a` 時点の状態を述べています。チェック単位の結果がないこと、artifact uploadがないこと、下表のLAB-03「存在のみ」は、冒頭の状況表で置き換えられています。*
 
 FastAPI/SQLiteの教材には、6種類の意図的な制御不備、`VULNERABLE`/`HARDENED`モード、ローカル対象スキャナ、合成の認証情報・診断データ、text/JSON出力があります。[アプリ](../app/main.py)、[認証](../app/auth.py)、[検査](../scanner/checks.py)、[対象検証](../scanner/target.py)、[実習ガイド](LAB_GUIDE.md)を参照してください。
 
@@ -55,11 +74,11 @@ SameSite未指定だけでCSRFが成立すると断定できません。ブラ�
 
 論文は異なる対象者・課題を扱い、定量的効果を本プロジェクトへ転用しません。Juice Shopには[修正選択を含むcoding challenge](https://juice-shop.github.io/tab_learning.html)もありますが、修正を選ぶことは自力で実装できた証拠ではありません。
 
-## 優先順位付きロードマップ — 以下はすべて未実装の提案
+## 優先順位付きロードマップ — 当初の提案（実装済みの範囲は冒頭の状況表を参照）
 
-順序は依存関係に基づき、納期の約束ではありません。将来の実装は別PRでレビューします。この文書変更ではdependency、アプリ挙動、スキャン範囲、CI設定を変更しません。
+順序は依存関係に基づき、納期の約束ではありません。将来の実装は別PRでレビューします。当初のこの文書変更では、dependency、アプリ挙動、スキャン範囲、CI設定を変更していません。
 
-判定の提案: PASSは検査対象の制御が指定条件を満たすこと、FAILは制御不備を観測したこと、ERRORは検査の前提を成立確認できないことです。VULNERABLEで期待されたFAILを確認することは教材の検証成功であり、ERRORを検出0件の成功にしません。これらの状態は現在のレポートschemaには未実装です。
+判定の提案: PASSは検査対象の制御が指定条件を満たすこと、FAILは制御不備を観測したこと、ERRORは検査の前提を成立確認できないことです。VULNERABLEで期待されたFAILを確認することは教材の検証成功であり、ERRORを検出0件の成功にしません。これらの状態は `b61488a` 時点のレポートschemaには未実装でした。現在はschema 2.0で実装されています。
 
 | 優先度・段階 | 成果物 | 測定可能な受入条件 |
 | --- | --- | --- |

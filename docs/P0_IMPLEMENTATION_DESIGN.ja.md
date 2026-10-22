@@ -2,6 +2,8 @@
 
 [English](P0_IMPLEMENTATION_DESIGN.md) | [日本語](P0_IMPLEMENTATION_DESIGN.ja.md)
 
+> **状況（2026-10-22時点）: 実装済み。** PR #8（コミット `036572d`、2026-10-13マージ）で、schema 2.0、検査前提、`--expected-mode`、LAB-01のロール表と旧トークン再利用、CIのevidence gate、LAB-01ワークシートを実装しました。PR #9〜#11で空ヘッダー検出と文書修正を追加しました。本注記と同時に追加したLAB-03の値検証は、下記のLAB-03「存在のみ」の基準を置き換え、理由コードを13から14に増やします（`COOKIE_SAMESITE_VALUE_INVALID`）。以下は当初の設計（基点 `b61488a`）を履歴として残したもので、「提案」「未実装」「アプリ実装は含みません」などの表現は、現在のコードではなく当時の提案PRについての記述です。残課題は[ロードマップの状況表](SURVEY_ROADMAP.ja.md)を参照してください。
+
 状態: 提案。Claudeの独立文書レビュー2回と阻害指摘の本文修正を完了し、人の確認待ちです。本PRにアプリ実装は含みません。基点: `b61488a07c378f0d9a67196c3fed0c549418643e`。根拠と出典は[サーベイ](SURVEY_ROADMAP.ja.md)を参照してください。本人指定の実装担当はClaudeで、設計レビューの指摘を解消してから開始します。教育効果は主張しません。
 
 ## 範囲と変更ファイル案
@@ -33,7 +35,7 @@ P0は既存httpx MockTransportとpytestで実装でき、新dependencyは不要�
 3. roleごとに新しい隔離clientを使います。loginは303→`/profile`、対象Cookie`lab_session`、`/api/profile`の200と想定username/role（`alice`/`user`、`admin`/`admin`）を要求します。前提の欠落・不正はERRORで、認可成功やCookie属性不備と解釈しません。
 4. LAB-01は以下の表とリソースの本人性（200時の想定adminページmarker）を検証し、statusだけでは判断しません。誤ったfixtureや無関係HTMLはERRORです。匿名観測に認証済みsessionが混ざらないよう別clientを使います。
 5. step3で`/api/profile`200の本人性を確認したaliceの対象session tokenだけをmemoryに保持します。同clientでGET `/logout`を要求し、303と正確な相対Location`/login`を確認し、それ以外はERRORです。同じ旧alice tokenを別clientで`/api/profile`と`/admin`へ再利用し、それぞれ401と303→`/login`を要求します。tokenはレポートに保存せず、認証保持ならLAB-01 FAILです。admin token再利用はP0外で、暗黙に検証済みとはしません。
-6. LAB-02/03はsession Cookie発行成功を要求します。P0では既存のHttpOnly/SameSite存在検査を維持し、値/実ブラウザーCSRF検証はP1です。LAB-04はhealth成功後に既存3ヘッダー存在を検査します。LAB-05は既知の500 JSON診断fixtureを要求します。LAB-06は200 JSONログとlist形式、login失敗401を要求します。想定外/不正応答はERRORです。詳細policy検査・イベント対応づけはP1です。
+6. LAB-02/03はsession Cookie発行成功を要求します。P0では既存のHttpOnly/SameSite存在検査を維持し、値/実ブラウザーCSRF検証はP1としていました。（更新: LAB-03は現在SameSiteの値も検証します。実ブラウザーでの検証は未実装です。）LAB-04はhealth成功後に既存3ヘッダー存在を検査します。LAB-05は既知の500 JSON診断fixtureを要求します。LAB-06は200 JSONログとlist形式、login失敗401を要求します。想定外/不正応答はERRORです。詳細policy検査・イベント対応づけはP1です。
 
 旧tokenの期待値はソースに基づきます。[GET `/logout`](../app/main.py)が[clear_session_cookie](../app/auth.py)を呼び、両modeでCookie削除前に[delete_session_record](../app/db.py)を呼びます。DB削除でtoken lookupが失効します。既存endpoint testはlogoutを検証しますがtoken再利用はしていません。再利用回帰は新規案で、本作業では実行していません。GET logoutとCSRFの限界は教材制約として残し、P0で新endpoint/CSRF保護は導入しません。
 
@@ -52,7 +54,7 @@ P0は既存httpx MockTransportとpytestで実装でき、新dependencyは不要�
 | --- | --- | --- | --- | --- |
 | LAB-01 | health、隔離role本人性、resource marker | 匿名/userのadminアクセス、旧token認証保持 | 全安全条件成立 | 必須観測のいずれかが不成立 |
 | LAB-02 | alice login成功と対象session Cookie | HttpOnlyなし | HttpOnlyあり | Cookie/login前提欠落・不正 |
-| LAB-03 | 同じalice Cookie | SameSite属性なし | 属性あり。値/CSRFの保証はしない | Cookie/login前提欠落・不正 |
+| LAB-03 | 同じalice Cookie | SameSite属性なし（当初）。現在は値が空・`None`・未知の場合も | 属性あり（当初）。現在はSameSite属性がちょうど1つで値がLaxまたはStrict | Cookie/login前提欠落・不正 |
 | LAB-04 | 正しいhealth応答 | 現在の3ヘッダーのいずれか欠落 | 全3名称あり。policy実効性の保証はしない | health不成立 |
 | LAB-05 | 500 JSON object | 合成`traceback`または`server_environment`あり | `error_code=ERR_INTERNAL_500`とgeneric error、露出キーなし | 別status/形式/未知fixture |
 | LAB-06 | 前後ログの200 JSON object/list、login失敗401 | AUTH_FAILURE件数不変 | 件数増加。対応づけの限界はP1 | 件数減少、ログ取得/形式不正、login401以外 |
@@ -73,7 +75,7 @@ exitの数値の意味を保持します。0は検査完了（弱点検出を含
 
 wrapper例外には機密を除いた完全reportを添えます。scannerとCIの未生成fallbackは共通model-level`build_error_report`で生成し、schemaのずれを防ぎます。
 
-modelsでreasonを中央定義しdocs/test/renderingで共用します: `CONTROL_SATISFIED`、`HEALTH_PRECONDITION_FAILED`、`MODE_MISMATCH`、`LOGIN_PRECONDITION_FAILED`、`UNEXPECTED_RESPONSE`、`NETWORK_ERROR`、`COOKIE_ATTRIBUTE_MISSING`、`HEADER_MISSING`、`DIAGNOSTIC_EXPOSURE`、`AUTH_FAILURE_NOT_LOGGED`、`ANON_ADMIN_ACCESS`、`USER_ADMIN_ACCESS`、`SESSION_RETAINED`。旧summaryはfinding件数のみを維持します。
+modelsでreasonを中央定義しdocs/test/renderingで共用します: `CONTROL_SATISFIED`、`HEALTH_PRECONDITION_FAILED`、`MODE_MISMATCH`、`LOGIN_PRECONDITION_FAILED`、`UNEXPECTED_RESPONSE`、`NETWORK_ERROR`、`COOKIE_ATTRIBUTE_MISSING`、`HEADER_MISSING`、`DIAGNOSTIC_EXPOSURE`、`AUTH_FAILURE_NOT_LOGGED`、`ANON_ADMIN_ACCESS`、`USER_ADMIN_ACCESS`、`SESSION_RETAINED`（当初の設計では13個。その後 `COOKIE_SAMESITE_VALUE_INVALID` を追加して14個）。旧summaryはfinding件数のみを維持します。
 
 ## CI証拠と受入テスト
 

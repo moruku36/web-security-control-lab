@@ -2,11 +2,30 @@
 
 [English](SURVEY_ROADMAP.md) | [日本語](SURVEY_ROADMAP.ja.md)
 
+> **Status as of 2026-10-22** (main `a5c32bf`, plus the LAB-03 value validation added together with this note). The P0 proposals in this document are implemented. The review date and baseline `b61488a` in the next paragraph are the original ones, and the body below keeps the original proposal text for history. Statements that describe the baseline (no per-check outcomes, no artifact upload, LAB-03 "presence only") are superseded by this table. Educational effectiveness has not been evaluated.
+>
+> | Item | Status | Where |
+> | --- | --- | --- |
+> | Schema 2.0, PASS/FAIL/ERROR per check, reason codes, inspection prerequisites, `--expected-mode`, exit code 3 | Implemented (PR #8, `036572d`, merged 2026-10-13) | `scanner/models.py`, `scanner/checks.py`, `scanner/cli.py` |
+> | LAB-01 role matrix (anonymous / user / admin) and old-token replay after logout | Implemented (PR #8) | `_check_lab01` in `scanner/checks.py`, `tests/unit/test_scanner_checks.py` |
+> | Sanitized CI evidence: both-mode reports, provenance, redaction check, 7-day `scan-evidence` artifact, evidence gate | Implemented (PR #8) | `.github/workflows/ci.yml` |
+> | LAB-01 worksheet and separate solution, English and Japanese | Implemented (PR #8) | `docs/worksheets/`, `docs/solutions/` |
+> | Empty or whitespace-only defensive header values (part of the LAB-04 gap) | Implemented (PR #9, #10) | [HEADER_CHECK_IMPROVEMENT](HEADER_CHECK_IMPROVEMENT.md) |
+> | README EN/JA consistency and Mermaid architecture figure | Done (PR #11), then replaced by generated SVG figures | `README.md`, `docs/diagrams/` |
+> | LAB-03 SameSite value validation (Lax or Strict; None, empty and unknown values fail; ambiguous cookies are ERROR); reason codes 13 to 14 | Implemented in this change | `_check_samesite` in `scanner/checks.py` |
+> | Diagrams as Mermaid sources plus Pele-generated SVG, with a regeneration script | Implemented in this change | `docs/diagrams/`, `docs/assets/`, `tools/diagrams/` |
+> | LAB-04 policy value analysis (CSP semantics, response coverage) | Not implemented | remaining |
+> | LAB-06 attribution of the specific synthetic audit event | Not implemented (count increase only) | remaining |
+> | LAB-02 per-cookie parsing for repeated `Set-Cookie` headers | Not implemented (LAB-02 still looks for the attribute name in the first `lab_session` header) | remaining |
+> | Browser-based verification, one-control-at-a-time mutation coverage, usability pilot, property tests, isolated ZAP comparison | Not implemented | remaining (P1/P2) |
+
 Reviewed on 2026-10-13 against commit `b61488a07c378f0d9a67196c3fed0c549418643e`. This is a documentation proposal, not an implementation or a report of a learner study. Only public sources and synthetic lab examples are used. No workplace outcomes or educational effects are claimed.
 
 The [P0 implementation design and Claude handoff](P0_IMPLEMENTATION_DESIGN.md) narrows the first implementation to LAB-01, inspection prerequisites, exact ID/severity evidence, and CI artifacts. It specifies files, schema/exit compatibility, acceptance tests, and the independent-review boundary.
 
 ## Implemented baseline and evidence limits
+
+*Historical: this section describes the baseline at `b61488a`. The missing per-check outcomes, the missing artifact upload and the LAB-03 "presence only" row in the table below are superseded; see the status table above.*
 
 The FastAPI/SQLite lab has six intentional control weaknesses, `VULNERABLE` and `HARDENED` modes, a local-target scanner, synthetic credentials and diagnostics, and text/JSON reports. See [application](../app/main.py), [authentication](../app/auth.py), [scanner checks](../scanner/checks.py), [target validation](../scanner/target.py), and [lab guide](LAB_GUIDE.md).
 
@@ -55,11 +74,11 @@ This is a focused survey of primary guidance and education examples, not an exha
 
 The reviewed papers address different populations and tasks. No quantitative effect estimate is transferred to this project. Juice Shop also offers [coding challenges](https://juice-shop.github.io/tab_learning.html), but choosing a repair is not evidence of independently implementing it.
 
-## Prioritized roadmap — all items below are unimplemented proposals
+## Prioritized roadmap — original proposals (see the status table above for what is implemented)
 
-Order reflects prerequisites, not a delivery commitment. Keep future implementation in separate reviewable PRs; do not change dependencies, application behavior, scanner scope, or CI settings in this documentation change.
+Order reflects prerequisites, not a delivery commitment. Keep future implementation in separate reviewable PRs; that original documentation-only change did not alter dependencies, application behavior, scanner scope, or CI settings.
 
-Proposed outcome semantics: PASS means the inspected control met its stated condition; FAIL means a control weakness was observed; ERROR means the inspection could not establish its prerequisites. Expected FAIL outcomes in VULNERABLE are successful exercise assertions; ERROR is never a zero-finding success. These states are not implemented in the current report schema.
+Proposed outcome semantics: PASS means the inspected control met its stated condition; FAIL means a control weakness was observed; ERROR means the inspection could not establish its prerequisites. Expected FAIL outcomes in VULNERABLE are successful exercise assertions; ERROR is never a zero-finding success. These states were not implemented in the report schema at `b61488a`; they are implemented in schema 2.0.
 
 | Priority / increment | Deliverable | Measurable acceptance criteria |
 | --- | --- | --- |
