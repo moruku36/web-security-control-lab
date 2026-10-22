@@ -81,14 +81,14 @@ security-lab scan http://127.0.0.1:8001 --format json --expected-mode HARDENED
 | 両モードのライブスキャン、redaction、provenance、evidence gate | 契約維持 | 成功。スキャン結果は上の表のとおり。provenanceの `pr_head_sha` は `e6f23891…`、`checkout_sha` はGitHubのPRマージ参照 `2f99c8a0…` | 同run |
 | スキーマ・終了コード・互換 | 変更なし | `schema_version` 2.0、レガシー3フィールド維持。終了コードの変更なし（CIのスキャン手順が終了コード0を要求して成功） | |
 | Peleでの生成 | 8枚生成 | 8枚生成、`--check` で再生成と一致、禁止構成（script、外部参照）なし | Node 22.23.2、pele 1.8.0 |
-| 表示確認 | 日本語が切れず、矢印・明暗・スマホ幅で読める | アプリ内ブラウザーで、ダーク/ライト、375px幅、日英を確認。GitHub上でも `<img>` が読み込まれることを確認 | Safari、Firefox、GitHubのテーマ切替は未確認 |
+| 表示確認 | 日本語が切れず、矢印・明暗・スマホ幅で読める | アプリ内ブラウザー（ローカル配信）で、ダーク/ライト、375px幅、日英を確認。GitHub上（ダークテーマ）では `<img>` の読み込みのみ確認（見た目の細部は未確認） | GitHubのテーマ切替、Safari、Firefoxは未確認 |
 | 分類関数の単体確認（ローカル） | 11ケースが期待どおり | 11ケース一致（標準ライブラリのみ） | 依存が入れられなかったため、ローカルでpytestは未実行 |
 
 未実行・できなかったこと:
 
 - ローカルでの `ruff` と `pytest`: 作業環境から `files.pythonhosted.org` へのTLS接続が失敗し（`pypi.org` は接続できる）、依存をインストールできませんでした。ローカルのPythonは3.11.9です。上の実測はすべてGitHub ActionsのCIの結果です。
 - 実ブラウザーでのSameSiteの挙動確認、LAB-04の高度なCSP解析、LAB-06のイベント相関: 今回は対象外です。
-- `npm install pele@1.8.0` 自体: npm registryに接続できず、同一ファイルをjsDelivrから取得し、SHA-256で固定バージョンを確認しました（[docs/diagrams/README.md](../diagrams/README.md)）。
+- `npm install pele@1.8.0` 自体: npm registryに接続できず、同一ファイルをjsDelivrから取得しました。SHA-256はjsDelivrの一覧値と一致しますが同じCDN由来で、npmのtarball・integrityとの照合は未実施です。ハッシュ一致は公式配布物であることの証明ではありません（[docs/diagrams/README.md](../diagrams/README.md)）。
 
 ## 7. CI証跡の扱い
 
@@ -109,6 +109,6 @@ security-lab scan http://127.0.0.1:8001 --format json --expected-mode HARDENED
 - LAB-06: 特定の合成ログイン失敗イベントの対応づけ（現状は件数の増加）。
 - LAB-02: `Set-Cookie` が重複する場合の扱い（LAB-03と同様のCookie単位の判定）。
 - ブラウザーでの検証（SameSiteの実際の送信挙動など）、変異テスト、ユーザビリティ試行。
-- **ライセンス（要確認）:** `pyproject.toml` とREADMEのバッジはMITですが、リポジトリに `LICENSE` ファイルがありません。権利者情報を推測して追加していないため、リポジトリ所有者の確認が必要です。
+- **ライセンス（要確認）:** `pyproject.toml`（初回コミット `27b5461` から `license = { text = "MIT" }`）とREADMEのバッジはMITですが、リポジトリの履歴に `LICENSE` ファイルが存在したことはなく、GitHubのlicense判定も空です。著作権表示は、`pyproject.toml` の著者が総称（「Web Security Control Lab Contributors」）、コミットの作者表記が複数、リポジトリ所有者が個人アカウントのため、権利者名と年を履歴から確定できません。所有者本人による、著作権者名、年、MIT採用の意思の確認が必要です。
 - 依存のインストール: 作業環境のネットワーク制限（`files.pythonhosted.org`）の確認が必要です。
 - チケット（TASK-11）のダッシュボード上の状態は変更していません。

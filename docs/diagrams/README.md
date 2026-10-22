@@ -37,11 +37,11 @@ npm run check        # fails if a committed SVG differs from a fresh render
 
 Each SVG carries a `<title>` and `<desc>` from the `accTitle` / `accDescr` lines of its source, and the READMEs give alt text plus a prose description under every figure.
 
-Provenance note for this repository's first generation (2026-10-22): the npm registry was not reachable from the authoring machine, so the identical `pele@1.8.0` `dist/pele.js` was fetched from the jsDelivr CDN and verified against the SHA-256 above before rendering. `npm install` itself was therefore not exercised there; the hash check in `render.mjs` is what guarantees that a normal install produces the same renderer. If your hash differs, do not edit the constant to make it pass; investigate.
+Provenance of the pinned build (checked 2026-10-22): `package.json` of `pele@1.8.0` names `https://github.com/obsidianmd/pele` as its repository and MIT as its license. The npm registry was not reachable from the authoring machine (TLS failure), so `dist/pele.js` was fetched from the jsDelivr CDN (`cdn.jsdelivr.net/npm/pele@1.8.0/dist/pele.js`, 695,333 bytes). Its SHA-256 equals the value jsDelivr's package listing reports for that file, but both come from the same CDN. What is **not** verified: `npm install pele@1.8.0` itself was never run here, the file was not compared with the npm registry tarball or its integrity value, and the hash is not a signature. A matching hash therefore shows that you have the same file this repository was rendered with; it does not prove the file is authentic official distribution. Before relying on it, compare the file with the registry tarball (`npm view pele@1.8.0 dist.integrity`) on a machine that can reach npm. If your hash differs, do not edit the constant to make it pass; investigate. If TLS or network errors persist, stop; do not loosen proxy or certificate settings.
 
 ## Display checks done
 
-Rendered in the in-app browser (Chromium) as `<img>` elements: dark and light color schemes, a 375 px wide viewport, Japanese labels without clipping, arrowheads visible. Not checked: GitHub's own page rendering (including its dark theme setting, which can differ from the operating-system setting that `prefers-color-scheme` follows), Safari and Firefox.
+Rendered in the in-app browser (Chromium) as `<img>` elements: dark and light color schemes, a 375 px wide viewport, Japanese labels without clipping, arrowheads visible. On GitHub (branch README, dark theme, in-app browser): the `<img>` elements loaded without error (image loading confirmed); the pixel-level look on GitHub was not inspected closely. Not verified: switching GitHub's theme (its theme setting can differ from the operating-system setting that `prefers-color-scheme` follows), Safari and Firefox.
 
 ---
 
@@ -71,8 +71,8 @@ npm run check        # コミット済みSVGが新しい生成結果と違えば
 
 `render.mjs` はPeleの公開API `render(source, options)` を呼び、結果の `.svg` を使います。`pele` コマンドラインツールは使いません。固定バージョン・生成オプション・後処理・ガードは上の英語の表のとおりです。各SVGには、編集元の `accTitle` / `accDescr` から `<title>` と `<desc>` が入り、READMEの各図の下に代替テキストと文章の説明があります。
 
-初回生成（2026-10-22）の来歴: 作成した環境からnpm registryに接続できなかったため、同一の `pele@1.8.0` の `dist/pele.js` をjsDelivr CDNから取得し、上記のSHA-256を確認してから生成しました。そのため `npm install` 自体はその環境で実行していません。通常のインストールで同じレンダラーになることは、`render.mjs` のハッシュ確認が保証します。ハッシュが一致しない場合は、定数を書き換えて通すのではなく、原因を調べてください。
+固定した版の来歴（2026-10-22確認）: `pele@1.8.0` の `package.json` は、リポジトリを `https://github.com/obsidianmd/pele`、ライセンスをMITと記しています。作成した環境からnpm registryに接続できなかった（TLSエラー）ため、`dist/pele.js` はjsDelivr CDN（`cdn.jsdelivr.net/npm/pele@1.8.0/dist/pele.js`、695,333バイト）から取得しました。そのSHA-256は、jsDelivrのパッケージ一覧が示す値と一致しますが、どちらも同じCDN由来です。**未検証**: `npm install pele@1.8.0` 自体は実行しておらず、npm registryのtarballやintegrity値との照合もしていません。ハッシュは署名ではないため、一致は「このリポジトリで生成したのと同じファイル」であることを示すだけで、公式配布物であることの証明ではありません。利用前に、npmに接続できる環境で `npm view pele@1.8.0 dist.integrity` とtarballを照合してください。ハッシュが一致しない場合は、定数を書き換えて通さず、原因を調べてください。TLSやネットワークのエラーが続く場合は中止し、プロキシや証明書の設定を緩めないでください。
 
 ### 表示の確認範囲
 
-アプリ内ブラウザー（Chromium）で `<img>` として表示し、ダーク/ライトの配色、幅375pxのビューポート、日本語ラベルの切れがないこと、矢印の表示を確認しました。未確認: GitHub上での表示（OSの設定に従う `prefers-color-scheme` と異なる場合があるGitHubのダークテーマ設定を含む）、SafariとFirefox。
+アプリ内ブラウザー（Chromium）で `<img>` として表示し、ダーク/ライトの配色、幅375pxのビューポート、日本語ラベルの切れがないこと、矢印の表示を確認しました。GitHub上（ブランチのREADME、ダークテーマ、アプリ内ブラウザー）では、`<img>` がエラーなく読み込まれたことを確認しました（画像の読み込み確認済み）。GitHub上での見た目の細部までは確認していません。未確認: GitHubのテーマ切替（OSの設定に従う `prefers-color-scheme` と異なる場合があります）、SafariとFirefox。
