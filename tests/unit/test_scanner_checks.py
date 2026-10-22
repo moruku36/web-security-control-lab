@@ -558,6 +558,173 @@ def test_cookie_checks_distinguish_each_attribute(attrs, lab02, lab03):
         assert check(report, "LAB-02").reason_code == ReasonCode.COOKIE_ATTRIBUTE_MISSING
 
 
+@pytest.mark.parametrize(
+    "attrs",
+    [
+        "; SameSite=Lax",
+        "; SameSite=Strict",
+        "; samesite=LAX",
+        "; SAMESITE=strict",
+        "; SameSite= Lax ",
+        "; HttpOnly;SameSite=Strict",
+    ],
+)
+def test_lab03_accepts_lax_and_strict_ignoring_case_and_whitespace(attrs):
+    lab = FakeLab("HARDENED")
+    lab.cookie_attrs = attrs
+    lab03 = check(scan(lab), "LAB-03")
+
+    assert lab03.status == CheckStatus.PASS
+    assert lab03.reason_code == ReasonCode.CONTROL_SATISFIED
+
+
+@pytest.mark.parametrize(
+    "attrs",
+    [
+        "; HttpOnly; SameSite=None",
+        "; HttpOnly; SameSite=none; Secure",
+        "; HttpOnly; SameSite=",
+        "; HttpOnly; SameSite",
+        "; HttpOnly; SameSite=   ",
+        "; HttpOnly; SameSite=Bogus",
+        "; HttpOnly; SameSite=Lax Strict",
+        "; HttpOnly; SameSite=Lax,Strict",
+        '; HttpOnly; SameSite="Lax"',
+    ],
+)
+def test_lab03_fails_when_samesite_value_is_not_lax_or_strict(attrs):
+    lab = FakeLab("HARDENED")
+    lab.cookie_attrs = attrs
+    report = scan(lab)
+    lab03 = check(report, "LAB-03")
+
+    assert lab03.status == CheckStatus.FAIL
+    assert lab03.reason_code == ReasonCode.COOKIE_SAMESITE_VALUE_INVALID
+    assert lab03.evidence["reasons"] == [ReasonCode.COOKIE_SAMESITE_VALUE_INVALID]
+    finding = next(f for f in report.findings if f.lab_id == "LAB-03")
+    assert finding.severity == Severity.MEDIUM
+    assert "Lax or Strict" in finding.description
+    # SameSite=None is not asserted to be generally vulnerable; only the lab condition is unmet.
+    assert "vulnerab" not in (finding.description + finding.details).lower()
+    assert "None" not in (finding.description + finding.details)
+    # The other checks are unaffected and no raw cookie or token leaks into the report.
+    assert check(report, "LAB-02").status == CheckStatus.PASS
+    output = format_json_report(report) + format_text_report(report)
+    for leaked in ("CANARY", "Set-Cookie", "lab_session", "Bogus"):
+        assert leaked.lower() not in output.lower()
+    validate_report(report.to_dict())
+
+
+def test_lab03_attribute_missing_keeps_its_own_reason_code():
+    lab = FakeLab("HARDENED")
+    lab.cookie_attrs = "; HttpOnly"
+    lab03 = check(scan(lab), "LAB-03")
+
+    assert lab03.status == CheckStatus.FAIL
+    assert lab03.reason_code == ReasonCode.COOKIE_ATTRIBUTE_MISSING
+
+
+def _custom_login_cookies(lab: FakeLab, build_headers: Callable[[str], list]) -> None:
+    """Make /login issue the headers built from the new token (location header is added)."""
+
+    def make(request: httpx.Request) -> httpx.Response:
+        form = parse_qs(request.content.decode())
+        name = form.get("username", [""])[0]
+        if name not in USERS or USERS[name][0] != form.get("password", [""])[0]:
+            return httpx.Response(401, text="Invalid username or password")
+        lab._counter += 1
+        token = f"CANARY-session-{lab._counter}-secret"
+        lab.sessions[token] = name
+        headers = [("location", "/profile")] + build_headers(token)
+        return httpx.Response(303, headers=headers)
+
+    lab.when("POST", "/login", None, make)
+
+
+def test_lab03_samesite_on_another_cookie_does_not_satisfy_the_session_cookie():
+    lab = FakeLab("HARDENED")
+    _custom_login_cookies(
+        lab,
+        lambda token: [
+            ("set-cookie", "theme=dark; Path=/; SameSite=Lax"),
+            ("set-cookie", f"lab_session={token}; Path=/; HttpOnly"),
+            ("set-cookie", "other=1; SameSite=Strict"),
+        ],
+    )
+    lab03 = check(scan(lab), "LAB-03")
+
+    assert lab03.status == CheckStatus.FAIL
+    assert lab03.reason_code == ReasonCode.COOKIE_ATTRIBUTE_MISSING
+
+
+def test_lab03_samesite_text_inside_another_attribute_is_not_an_attribute():
+    lab = FakeLab("HARDENED")
+    lab.cookie_attrs = "; HttpOnly; Path=/?x=SameSite=Lax"
+    lab03 = check(scan(lab), "LAB-03")
+
+    assert lab03.status == CheckStatus.FAIL
+    assert lab03.reason_code == ReasonCode.COOKIE_ATTRIBUTE_MISSING
+
+
+def test_lab03_duplicate_samesite_attributes_are_indeterminate_error():
+    lab = FakeLab("HARDENED")
+    lab.cookie_attrs = "; HttpOnly; SameSite=None; SameSite=Lax"
+    report = scan(lab)
+    lab03 = check(report, "LAB-03")
+
+    assert lab03.status == CheckStatus.ERROR
+    assert lab03.reason_code == ReasonCode.UNEXPECTED_RESPONSE
+    assert not [f for f in report.findings if f.lab_id == "LAB-03"]
+    assert check(report, "LAB-01").status == CheckStatus.PASS
+
+
+def test_lab03_duplicate_session_cookies_are_indeterminate_error():
+    lab = FakeLab("HARDENED")
+    _custom_login_cookies(
+        lab,
+        lambda token: [
+            ("set-cookie", f"lab_session={token}; Path=/; HttpOnly; SameSite=Lax"),
+            ("set-cookie", f"lab_session={token}; Path=/; HttpOnly; SameSite=None"),
+        ],
+    )
+    lab03 = check(scan(lab), "LAB-03")
+
+    assert lab03.status == CheckStatus.ERROR
+    assert lab03.reason_code == ReasonCode.UNEXPECTED_RESPONSE
+
+
+def test_lab03_login_failure_still_reports_error_not_fail():
+    lab = FakeLab("HARDENED")
+    lab.when("POST", "/login", None, lambda r: httpx.Response(500))
+    lab03 = check(scan(lab), "LAB-03")
+
+    assert lab03.status == CheckStatus.ERROR
+    assert lab03.reason_code == ReasonCode.LOGIN_PRECONDITION_FAILED
+
+
+def test_lab03_missing_session_cookie_still_reports_error():
+    lab = FakeLab("HARDENED")
+    lab.when("POST", "/login", None, lambda r: httpx.Response(303, headers={"location": "/profile"}))
+    lab03 = check(scan(lab), "LAB-03")
+
+    assert lab03.status == CheckStatus.ERROR
+    assert lab03.reason_code == ReasonCode.LOGIN_PRECONDITION_FAILED
+
+
+def test_lab03_identity_mismatch_still_reports_error():
+    lab = FakeLab("HARDENED")
+    lab.when(
+        "GET",
+        "/api/profile",
+        None,
+        lambda r: httpx.Response(200, json={"username": "someone_else", "role": "user"}),
+    )
+    lab03 = check(scan(lab), "LAB-03")
+
+    assert lab03.status == CheckStatus.ERROR
+    assert lab03.reason_code == ReasonCode.LOGIN_PRECONDITION_FAILED
+
+
 def test_header_check_fails_when_any_header_is_missing():
     lab = FakeLab("HARDENED")
     lab.when(
@@ -758,8 +925,8 @@ def test_validate_report_rejects_swapped_ids_with_same_totals():
 
 
 def test_reason_codes_are_central_and_complete():
-    assert len(REASON_CODES) == 13
-    assert len(set(REASON_CODES)) == 13
+    assert len(REASON_CODES) == 14
+    assert len(set(REASON_CODES)) == 14
 
 
 def test_legacy_fields_retained_in_json():
