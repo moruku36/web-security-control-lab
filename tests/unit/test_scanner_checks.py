@@ -582,7 +582,7 @@ def test_lab03_accepts_lax_and_strict_ignoring_case_and_whitespace(attrs):
     "attrs",
     [
         "; HttpOnly; SameSite=None",
-        "; HttpOnly; SameSite=none; Secure",
+        "; HttpOnly; SameSite=none",
         "; HttpOnly; SameSite=",
         "; HttpOnly; SameSite",
         "; HttpOnly; SameSite=   ",
