@@ -1,0 +1,15 @@
+flowchart TB
+  accTitle: Overall structure of Web Security Control Lab
+  accDescr: A learner and the host-side scanner both reach one FastAPI target app over local HTTP. SQLite lives inside the app process. The app is started either with uvicorn on the host or as the single web service of docker compose.
+  subgraph host["Learner machine, localhost only"]
+    direction TB
+    learner["Learner<br/>browser / curl"]
+    scanner["Scanner CLI on the host<br/>security-lab scan<br/>HTTP only, never opens SQLite"]
+    start["Started with either<br/>uvicorn on the host, or<br/>docker compose service web<br/>(the only container)"]
+    app["Target app: FastAPI (app/)<br/>one process, one LAB_MODE per start<br/>routes, header middleware, auth"]
+    db[("SQLite inside the app process<br/>in-memory by default")]
+    learner -->|"HTTP 127.0.0.1"| app
+    scanner -->|"HTTP, local targets only"| app
+    start -.->|"starts"| app
+    app --> db
+  end

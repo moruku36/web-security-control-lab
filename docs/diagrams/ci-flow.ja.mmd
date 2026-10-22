@@ -1,0 +1,14 @@
+flowchart TB
+  accTitle: .github/workflows/ci.yml の実際のCIフロー
+  accDescr: mainへのpushまたはmain向けプルリクエストで、まず2つのテストジョブが動きます。ライブスキャンジョブは、それらが失敗しても実行され、両モードを検査し、provenanceを書き、redactionを確認し、サニタイズ済みの証跡をアップロードして、最後にevidence gateで判定します。
+  trigger["mainへのpush、または<br/>main向けのプルリクエスト"]
+  lint["lint-and-test<br/>ruffとpytest、Python 3.11"]
+  c312["python-312-compat<br/>pytest、Python 3.12"]
+  live["live-security-scan<br/>テストが失敗しても実行<br/>:8000 VULNERABLE 起動→検査→検証<br/>:8001 HARDENED 起動→検査→検証"]
+  ev["provenance、redaction確認、<br/>scan-evidenceをアップロード（7日）"]
+  gate["Evidence gate<br/>すべて成功しない限り失敗"]
+  trigger --> lint
+  trigger --> c312
+  lint --> live
+  c312 --> live
+  live --> ev --> gate

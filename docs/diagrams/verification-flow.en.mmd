@@ -1,0 +1,21 @@
+flowchart TB
+  accTitle: Verification flow for VULNERABLE and HARDENED modes
+  accDescr: The app is started once per mode and scanned with security-lab scan. A refused target exits with 2 before any request. Failed prerequisites give ERROR and exit 3. Otherwise six checks give PASS, FAIL or ERROR, and the results are compared with the expectation for each mode.
+  start["Start the app once per mode<br/>VULNERABLE on port 8000<br/>HARDENED on port 8001"]
+  scan["security-lab scan URL<br/>--expected-mode MODE"]
+  refuse["Target refused<br/>exit 2, no request sent"]
+  pre["Prerequisites<br/>/health service and mode<br/>synthetic logins"]
+  err["Affected checks: ERROR<br/>exit 3, never a pass"]
+  checks["Six checks, LAB-01 to LAB-06<br/>each PASS, FAIL or ERROR"]
+  vul["VULNERABLE expected<br/>6 FAIL<br/>HIGH 1, MEDIUM 4, LOW 1"]
+  har["HARDENED expected<br/>6 PASS, findings 0"]
+  cmp["Compare with expectation<br/>(CI evidence gate)"]
+  start --> scan
+  scan -->|"valid local URL"| pre
+  scan -->|"refused"| refuse
+  pre -->|"not established"| err
+  pre -->|"established"| checks
+  checks --> vul
+  checks --> har
+  vul --> cmp
+  har --> cmp

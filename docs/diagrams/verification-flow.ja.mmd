@@ -1,0 +1,21 @@
+flowchart TB
+  accTitle: VULNERABLE と HARDENED の検証フロー
+  accDescr: アプリをモードごとに1回起動し、security-lab scan で検査します。拒否された対象はリクエスト前に終了コード2で終わります。前提を確立できなければERRORで終了コード3です。それ以外は6つの検査がPASS、FAIL、ERRORを返し、モードごとの期待値と比べます。
+  start["モードごとにアプリを起動<br/>VULNERABLE はポート8000<br/>HARDENED はポート8001"]
+  scan["security-lab scan URL<br/>--expected-mode MODE"]
+  refuse["対象を拒否<br/>終了コード2<br/>リクエスト送信なし"]
+  pre["前提の確認<br/>/health のサービスとモード<br/>合成ログイン"]
+  err["影響する検査はERROR<br/>終了コード3<br/>成功扱いにしない"]
+  checks["6つの検査 LAB-01〜LAB-06<br/>各々 PASS、FAIL、ERROR"]
+  vul["VULNERABLEの期待値<br/>6 FAIL<br/>HIGH 1、MEDIUM 4、LOW 1"]
+  har["HARDENEDの期待値<br/>6 PASS、findings 0"]
+  cmp["期待値と比較<br/>（CIはevidence gate）"]
+  start --> scan
+  scan -->|"有効なローカルURL"| pre
+  scan -->|"拒否"| refuse
+  pre -->|"確立できない"| err
+  pre -->|"確立できた"| checks
+  checks --> vul
+  checks --> har
+  vul --> cmp
+  har --> cmp

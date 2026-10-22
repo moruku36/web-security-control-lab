@@ -47,3 +47,6 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# Node tooling for docs diagrams (tools/diagrams)
+node_modules/
