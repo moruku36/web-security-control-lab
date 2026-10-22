@@ -101,4 +101,4 @@ CI ([ci.yml](.github/workflows/ci.yml)) runs Ruff and pytest on Python 3.11, pyt
 - The checks are HTTP-client observations, not browser tests. A cookie attribute check is not a proof that cross-site actions are safe.
 - The scanner refuses targets outside its local allowlist (`localhost`, loopback addresses and the Compose container name). Do not expose the vulnerable application to a network or scan systems you do not own; see [SECURITY.md](SECURITY.md).
 - Deeper policy checks (CSP value analysis, correlating a specific audit event) and real-browser verification are not implemented; see the status table in the [roadmap](docs/SURVEY_ROADMAP.md).
-- The repository declares the MIT license in `pyproject.toml` and the badge above, but does not currently contain a `LICENSE` file.
+- This repository is licensed under the [MIT License](LICENSE).
