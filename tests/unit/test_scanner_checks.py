@@ -704,7 +704,9 @@ def test_lab03_login_failure_still_reports_error_not_fail():
 
 def test_lab03_missing_session_cookie_still_reports_error():
     lab = FakeLab("HARDENED")
-    lab.when("POST", "/login", None, lambda r: httpx.Response(303, headers={"location": "/profile"}))
+    lab.when(
+        "POST", "/login", None, lambda r: httpx.Response(303, headers={"location": "/profile"})
+    )
     lab03 = check(scan(lab), "LAB-03")
 
     assert lab03.status == CheckStatus.ERROR

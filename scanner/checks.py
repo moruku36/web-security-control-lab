@@ -161,6 +161,7 @@ class _Session:
     client: Optional[httpx.Client] = None
     token: Optional[str] = None
     set_cookie: Optional[str] = None
+    cookie_count: int = 0
     verified: bool = False
     error: Optional[str] = None
     observations: List[Dict[str, Any]] = field(default_factory=list)
@@ -225,8 +226,35 @@ def _session_cookie(resp: httpx.Response) -> Optional[str]:
     return None
 
 
+def _session_cookie_count(resp: httpx.Response) -> int:
+    prefix = f"{SESSION_COOKIE}="
+    return sum(1 for header in resp.headers.get_list("set-cookie") if header.startswith(prefix))
+
+
 def _cookie_attributes(set_cookie: str) -> set:
     return {part.split("=", 1)[0].strip().lower() for part in set_cookie.split(";")[1:]}
+
+
+SAMESITE_ACCEPTED = ("lax", "strict")
+
+
+def _samesite_outcome(set_cookie: str) -> str:
+    """Classify the SameSite attribute of the lab_session Set-Cookie header.
+
+    Lab condition: exactly one SameSite attribute whose value, ignoring case and surrounding
+    whitespace, is Lax or Strict. Returns "ok", "missing" (no attribute), "invalid" (empty,
+    unknown or None value) or "ambiguous" (repeated attribute, so the effective value is unclear).
+    """
+    values = []
+    for part in set_cookie.split(";")[1:]:
+        name, _, value = part.partition("=")
+        if name.strip().lower() == "samesite":
+            values.append(value.strip().lower())
+    if not values:
+        return "missing"
+    if len(values) > 1:
+        return "ambiguous"
+    return "ok" if values[0] in SAMESITE_ACCEPTED else "invalid"
 
 
 def _login(ins: _Inspector, actor: str, fixture: tuple) -> _Session:
@@ -242,6 +270,7 @@ def _login(ins: _Inspector, actor: str, fixture: tuple) -> _Session:
         if not _is_redirect(resp, 303, "/profile") or set_cookie is None:
             raise _Abort(ReasonCode.LOGIN_PRECONDITION_FAILED)
         session.set_cookie = set_cookie
+        session.cookie_count = _session_cookie_count(resp)
         session.token = set_cookie.split(";", 1)[0].split("=", 1)[1]
         if not session.token:
             raise _Abort(ReasonCode.LOGIN_PRECONDITION_FAILED)
@@ -350,6 +379,7 @@ def _check_lab01(ins: _Inspector, mode: str, alice: _Session, admin: _Session) -
 
 
 def _check_cookie(lab_id: str, attribute: str, mode: str, alice: _Session) -> _Builder:
+    """LAB-02: the lab_session cookie carries the HttpOnly attribute."""
     b = _Builder(lab_id, mode)
     for obs in alice.observations:
         b.observe(obs)
@@ -362,12 +392,47 @@ def _check_cookie(lab_id: str, attribute: str, mode: str, alice: _Session) -> _B
             b.weak(ReasonCode.COOKIE_ATTRIBUTE_MISSING)
 
     b.guard(inspect)
-    if lab_id == "LAB-02":
+    b.lab_finding = (
+        "Session Cookie",
+        Severity.MEDIUM,
+        "HttpOnly flag is missing",
+        "Session cookie can be accessed via client-side JavaScript (XSS risk)",
+    )
+    return b
+
+
+def _check_samesite(mode: str, alice: _Session) -> _Builder:
+    """LAB-03: the lab_session cookie declares SameSite=Lax or SameSite=Strict.
+
+    Only the lab_session Set-Cookie header counts; SameSite on other cookies is ignored.
+    Several lab_session headers or SameSite attributes make the result indeterminate (ERROR).
+    SameSite=None is reported only as not meeting this lab condition, not as a general flaw.
+    """
+    b = _Builder("LAB-03", mode)
+    for obs in alice.observations:
+        b.observe(obs)
+    b.verified = alice.verified
+
+    def inspect() -> None:
+        if alice.error or alice.set_cookie is None:
+            raise _Abort(alice.error or ReasonCode.LOGIN_PRECONDITION_FAILED)
+        if alice.cookie_count != 1:
+            raise _Abort(ReasonCode.UNEXPECTED_RESPONSE)
+        outcome = _samesite_outcome(alice.set_cookie)
+        if outcome == "ambiguous":
+            raise _Abort(ReasonCode.UNEXPECTED_RESPONSE)
+        if outcome == "missing":
+            b.weak(ReasonCode.COOKIE_ATTRIBUTE_MISSING)
+        elif outcome == "invalid":
+            b.weak(ReasonCode.COOKIE_SAMESITE_VALUE_INVALID)
+
+    b.guard(inspect)
+    if ReasonCode.COOKIE_SAMESITE_VALUE_INVALID in b.weaknesses:
         b.lab_finding = (
             "Session Cookie",
             Severity.MEDIUM,
-            "HttpOnly flag is missing",
-            "Session cookie can be accessed via client-side JavaScript (XSS risk)",
+            "SameSite value is not Lax or Strict",
+            "Session cookie SameSite value does not meet this lab's condition (Lax or Strict)",
         )
     else:
         b.lab_finding = (
@@ -509,7 +574,7 @@ def run_inspection(
         builders = [
             _check_lab01(ins, mode, alice, admin),
             _check_cookie("LAB-02", "httponly", mode, alice),
-            _check_cookie("LAB-03", "samesite", mode, alice),
+            _check_samesite(mode, alice),
             _check_headers(mode, headers, health_obs),
             _check_diagnostic(ins, mode),
             _check_logging(ins, mode),
