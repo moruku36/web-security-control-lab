@@ -4,56 +4,29 @@
 
 1. **対象Webアプリケーション (`app/`)**: 設定フラグ（`VULNERABLE` / `HARDENED`）で挙動を切り替え可能な、FastAPIベースのローカル教育用Webサービス。
 2. **セキュリティ統制スキャナ (`scanner/`)**: `localhost` 以外へのリクエストを確実に遮断するFail-Closedな安全境界を備えたPython製CLIツール。
-3. **自動化・ガバナンス層 (`.github/workflows/ci.yml` および `factory/`)**: CI（ruff / pytest / 両モードのライブスキャン）と、AI支援開発の宣言的なタスクマニフェスト（`factory/tasks/wscl-*.yaml`）。
+3. **自動化・記録 (`.github/workflows/ci.yml` および `factory/`)**: CI（ruff / pytest / 両モードのライブスキャン）と、AI支援開発のタスクマニフェスト（`factory/tasks/wscl-*.yaml`）。マニフェストは作業の記録で、CIが自動実行するものではありません。
 
 アプリとスキャナはどちらもローカルマシン上で動作し、スキャナはHTTPでのみアプリに接続します（SQLiteには直接アクセスしません）。Docker Compose で起動するのは対象アプリのみで、SQLite はアプリプロセス内の既定インメモリDB（`LAB_DB_PATH` で変更可）です。
 
 ## システム構成図 (System Diagram)
 
-```mermaid
-flowchart LR
-    User["ブラウザ / curl / pytest"]
+![全体構成: 学習者とホスト側のスキャナーが、ローカルHTTPで1つのFastAPI対象アプリに接続し、SQLiteはアプリのプロセス内にある](assets/architecture.ja.svg)
 
-    subgraph Host["ローカルマシン (localhost のみ)"]
-        subgraph App["対象アプリ app/ (FastAPI :8000)"]
-            Routes["ルーティング main.py<br/>/ /login /logout /profile /api/profile<br/>/admin /health /api/diagnostic /audit-logs"]
-            Auth["認証・セッション auth.py<br/>(Cookie属性 / AUTH_FAILURE ログ)"]
-            Headers["防御ヘッダー Middleware"]
-            Diag["診断・エラー応答"]
-            Mode{"LAB_MODE<br/>VULNERABLE / HARDENED"}
-            DB[("SQLite db.py<br/>users / sessions / audit_logs")]
-            Routes --> Auth
-            Routes --> Headers
-            Routes --> Diag
-            Auth --> DB
-            Mode -.->|挙動を切替| Auth
-            Mode -.-> Headers
-            Mode -.-> Diag
-        end
+**図の説明（全体構成）。** FastAPIの1プロセス（`app/`）が、起動ごとに1つの `LAB_MODE`（`VULNERABLE` / `HARDENED`）でエンドポイントを提供します。SQLiteは同じプロセス内にあり（`app/db.py`、既定はインメモリ、`LAB_DB_PATH` で変更可）、別のDBコンテナはありません。学習者（ブラウザー、curl）とスキャナー（`scanner/`、`security-lab scan`）は、どちらもローカルHTTPでアプリに接続します。スキャナーはホスト上で動き、リクエスト前に対象を検証し、SQLiteを直接開きません。アプリはホストの `uvicorn`、またはDocker Composeの唯一の `web` サービスとして起動します。スキャナーのコンテナはありません。編集元: [architecture.ja.mmd](diagrams/architecture.ja.mmd)
 
-        subgraph Scanner["スキャナ scanner/ (security-lab scan)"]
-            Validator{"target.py<br/>対象URL検証<br/>localhost 限定"}
-            Checks["checks.py<br/>LAB-01..06<br/>PASS / FAIL / ERROR"]
-            Reporter["reporter.py<br/>Text / JSON (schema 2.0)"]
-            Refuse["拒否 (終了コード 2)"]
-            Validator -->|許可| Checks --> Reporter
-            Validator -->|拒否| Refuse
-        end
-    end
+### 検証フロー
 
-    subgraph Auto["自動化・ガバナンス"]
-        Manifest["factory/tasks/wscl-001..004.yaml"]
-        CI["GitHub Actions ci.yml<br/>ruff / pytest (3.11, 3.12)<br/>live-security-scan"]
-        Evidence["スキャン証跡 (scan-evidence)"]
-        Manifest -.-> CI
-        CI --> Evidence
-    end
+![検証フロー: モードごとにアプリを起動し、security-lab scan で前提を確認、6つの検査を行い、期待値と比較する](assets/verification-flow.ja.svg)
 
-    User -->|HTTP| Routes
-    Checks -->|ローカルHTTPのみ| Routes
-    CI -.->|VULNERABLE :8000 / HARDENED :8001 で起動してスキャン| App
-    CI -.-> Scanner
-```
+**図の説明（検証フロー）。** アプリをモードごとに1回起動し（`VULNERABLE` はポート8000、`HARDENED` はポート8001）、`security-lab scan <URL> --expected-mode <MODE>` で検査します。ローカルのallowlist外の対象は、リクエスト送信前に終了コード2で拒否します。`/health` のサービスとモード、合成ログイン（`alice`、`admin`）を確立できなければ、影響する検査はERRORで、終了コードは3です。確立できれば6つの検査（LAB-01〜LAB-06）がPASS、FAIL、ERRORを返し、期待値（`VULNERABLE`: 6 FAIL、HIGH 1 / MEDIUM 4 / LOW 1、`HARDENED`: 6 PASS、findings 0）と比べます。CIではevidence gateが比較します。編集元: [verification-flow.ja.mmd](diagrams/verification-flow.ja.mmd)
+
+### CIフロー（実際の `ci.yml`）
+
+![CIフロー: テストジョブ、両モードのライブスキャン、provenanceとredaction確認、証跡アップロード、evidence gate](assets/ci-flow.ja.svg)
+
+**図の説明（CIフロー）。** `main` へのpush、または `main` 向けのプルリクエストで、`lint-and-test`（ruffとpytest、Python 3.11）と `python-312-compat`（pytest、Python 3.12）が動きます。`live-security-scan` は、それらが失敗しても実行され、両モードを起動・検査・検証し、provenanceを書き、redactionを確認し、サニタイズ済みの `scan-evidence` を7日保持でアップロードし、最後のevidence gateで、すべて成功しない限り失敗にします。`factory/tasks/*.yaml` はAI支援開発のタスク記録で、CIの手順はこれを読まず実行もしません。編集元: [ci-flow.ja.mmd](diagrams/ci-flow.ja.mmd)
+
+図はすべて、Mermaidの編集元（`docs/diagrams/`）からPeleで生成しています。再生成の手順は [diagrams/README.md](diagrams/README.md) を参照してください。
 
 期待されるスキャン結果は、`VULNERABLE` が HIGH 1 / MEDIUM 4 / LOW 1、`HARDENED` が 0 件です（CI の `live-security-scan` で検証）。
 

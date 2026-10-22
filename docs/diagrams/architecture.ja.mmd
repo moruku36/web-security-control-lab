@@ -1,0 +1,15 @@
+flowchart TB
+  accTitle: Web Security Control Lab の全体構成
+  accDescr: 学習者とホスト側のスキャナーは、ローカルHTTPで1つのFastAPI対象アプリに接続します。SQLiteはアプリのプロセス内にあります。アプリはホストのuvicornか、docker composeの唯一のwebサービスとして起動します。
+  subgraph host["学習者のマシン（localhostのみ）"]
+    direction TB
+    learner["学習者<br/>ブラウザー / curl"]
+    scanner["ホスト上のスキャナーCLI<br/>security-lab scan<br/>HTTPのみ。SQLiteは開かない"]
+    start["どちらかで起動<br/>ホストのuvicorn、または<br/>docker composeのwebサービス<br/>（唯一のコンテナ）"]
+    app["対象アプリ: FastAPI（app/）<br/>1プロセス、起動ごとに1つのLAB_MODE<br/>ルート、ヘッダーMiddleware、認証"]
+    db[("アプリのプロセス内のSQLite<br/>既定はインメモリ")]
+    learner -->|"HTTP 127.0.0.1"| app
+    scanner -->|"HTTP、ローカル対象のみ"| app
+    start -.->|"起動"| app
+    app --> db
+  end

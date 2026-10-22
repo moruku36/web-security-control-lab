@@ -1,0 +1,14 @@
+flowchart TB
+  accTitle: Actual CI flow in .github/workflows/ci.yml
+  accDescr: On a push to main or a pull request to main, two test jobs run first. The live scan job then runs even if they failed, scans both modes, writes provenance, checks redaction, uploads sanitized evidence, and ends with an evidence gate.
+  trigger["Push to main or<br/>pull request to main"]
+  lint["lint-and-test<br/>ruff and pytest, Python 3.11"]
+  c312["python-312-compat<br/>pytest, Python 3.12"]
+  live["live-security-scan<br/>runs even if a test job failed<br/>:8000 VULNERABLE: start, scan, verify<br/>:8001 HARDENED: start, scan, verify"]
+  ev["Provenance, redaction check,<br/>upload scan-evidence (7 days)"]
+  gate["Evidence gate<br/>fails unless every part succeeded"]
+  trigger --> lint
+  trigger --> c312
+  lint --> live
+  c312 --> live
+  live --> ev --> gate

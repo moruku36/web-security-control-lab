@@ -1,0 +1,10 @@
+flowchart TB
+  accTitle: LAB-01 learning loop
+  accDescr: Six steps for the LAB-01 exercise: predict, observe in VULNERABLE, explain the cause, repair, reverify in HARDENED, and state the limits. The worked solution is kept in a separate file.
+  predict["1 Predict<br/>who may open /admin?<br/>anonymous, user, admin"]
+  observe["2 Observe in VULNERABLE<br/>role matrix, then the old token<br/>after logout"]
+  explain["3 Explain the cause<br/>identity is not permission"]
+  repair["4 Repair<br/>role check in the admin handler<br/>(solution is a separate file)"]
+  reverify["5 Reverify in HARDENED<br/>user denied, admin allowed,<br/>logged-out token rejected"]
+  limits["6 State the limits<br/>six local checks are not<br/>proof of production safety"]
+  predict --> observe --> explain --> repair --> reverify --> limits

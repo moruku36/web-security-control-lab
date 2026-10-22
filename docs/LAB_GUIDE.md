@@ -65,6 +65,7 @@ docker compose up --build
      Set-Cookie: lab_session=...; Path=/
      ```
   2. `SameSite=Lax` や `SameSite=Strict` が欠落していることを確認。
+- **スキャナーの条件**: `lab_session` のSet-Cookieに `SameSite` 属性がちょうど1つあり、値が `Lax` または `Strict`（大文字小文字・前後の空白は無視）であればPASSです。属性がない場合は `COOKIE_ATTRIBUTE_MISSING`、値が空・`None`・未知の場合は `COOKIE_SAMESITE_VALUE_INVALID` でFAILです。`SameSite=None` を一般に脆弱と断定するのではなく、「このラボの条件を満たさない」という意味です。`lab_session` ヘッダーや `SameSite` 属性が重複して有効値を判断できない場合はERROR、他のCookieの `SameSite` は無視します。
 
 ### LAB-04: Missing Security Headers（防御ヘッダー不備）
 - **現象**: XSSやMIMEスニッフィングを抑止するブラウザセキュリティヘッダーが欠落している。

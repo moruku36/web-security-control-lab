@@ -1,0 +1,10 @@
+flowchart TB
+  accTitle: LAB-01 の学習ループ
+  accDescr: LAB-01 演習の6ステップ。予測、VULNERABLEでの観察、原因の説明、修正、HARDENEDでの再検証、限界の説明です。解答例は別ファイルです。
+  predict["1 予測<br/>/admin を開けるのは誰か<br/>匿名、user、admin"]
+  observe["2 VULNERABLEで観察<br/>ロール別の結果と<br/>ログアウト後の旧トークン"]
+  explain["3 原因を説明<br/>本人確認は権限ではない"]
+  repair["4 修正<br/>管理画面ハンドラーのロール検査<br/>（解答例は別ファイル）"]
+  reverify["5 HARDENEDで再検証<br/>user拒否、admin許可、<br/>ログアウト後トークン拒否"]
+  limits["6 限界を説明<br/>ローカルの6検査は本番の<br/>安全性の証明ではない"]
+  predict --> observe --> explain --> repair --> reverify --> limits

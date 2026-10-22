@@ -55,6 +55,7 @@ class ReasonCode:
     UNEXPECTED_RESPONSE = "UNEXPECTED_RESPONSE"
     NETWORK_ERROR = "NETWORK_ERROR"
     COOKIE_ATTRIBUTE_MISSING = "COOKIE_ATTRIBUTE_MISSING"
+    COOKIE_SAMESITE_VALUE_INVALID = "COOKIE_SAMESITE_VALUE_INVALID"
     HEADER_MISSING = "HEADER_MISSING"
     DIAGNOSTIC_EXPOSURE = "DIAGNOSTIC_EXPOSURE"
     AUTH_FAILURE_NOT_LOGGED = "AUTH_FAILURE_NOT_LOGGED"
@@ -72,6 +73,9 @@ REASON_MESSAGES: Dict[str, str] = {
     ReasonCode.UNEXPECTED_RESPONSE: "Unexpected response was received",
     ReasonCode.NETWORK_ERROR: "Request failed before a response could be inspected",
     ReasonCode.COOKIE_ATTRIBUTE_MISSING: "Session cookie attribute is missing",
+    ReasonCode.COOKIE_SAMESITE_VALUE_INVALID: (
+        "Session cookie SameSite value is not Lax or Strict"
+    ),
     ReasonCode.HEADER_MISSING: "Defensive response header is missing",
     ReasonCode.DIAGNOSTIC_EXPOSURE: "Diagnostic response exposes internal details",
     ReasonCode.AUTH_FAILURE_NOT_LOGGED: "Failed login was not recorded",

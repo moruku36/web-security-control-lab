@@ -49,8 +49,10 @@ Detailed analysis of each security weakness implemented in `web-security-control
 - **What happens?**: The session cookie lacks a `SameSite` attribute.
 - **Why is it dangerous?**: Cross-site requests initiated by third-party malicious sites may automatically include the browser's stored credentials/cookie, enabling Cross-Site Request Forgery (CSRF).
 - **How can it be detected?**:
-  - Inspect `Set-Cookie` header and check whether `SameSite=Lax` or `SameSite=Strict` is declared.
-  - Scanner finding: `[MEDIUM] LAB-03 Session Cookie: SameSite policy is missing`.
+  - Inspect the `lab_session` `Set-Cookie` header and check whether exactly one `SameSite` attribute with the value `Lax` or `Strict` (case and surrounding whitespace ignored) is declared. `SameSite` on other cookies does not count.
+  - Absent attribute: `COOKIE_ATTRIBUTE_MISSING`, `[MEDIUM] LAB-03 Session Cookie: SameSite policy is missing`.
+  - Empty, `None` or unknown value: `COOKIE_SAMESITE_VALUE_INVALID`, `[MEDIUM] LAB-03 Session Cookie: SameSite value is not Lax or Strict`. This means the value does not meet this lab's condition; it is not a claim that `SameSite=None` is generally a vulnerability.
+  - Repeated `lab_session` headers or `SameSite` attributes: the effective value is indeterminate, so the check reports ERROR (`UNEXPECTED_RESPONSE`).
 - **How should it be fixed?**:
   Set `samesite="lax"` or `samesite="strict"`:
   ```python
