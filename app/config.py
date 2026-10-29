@@ -10,10 +10,12 @@ class LabMode(str, Enum):
 
 
 # Default mode is VULNERABLE for initial educational state
+# Intentional for local education (See [Requirement 09] in docs/SECURITY_CONTROLS.md)
 LAB_MODE: str = os.getenv("LAB_MODE", LabMode.VULNERABLE.value)
 
 # TEST CREDENTIALS - DO NOT USE IN PRODUCTION
 # Explicit mock fixtures strictly for local educational lab demonstration
+# Intentional for local education (See [Requirement 09] in docs/SECURITY_CONTROLS.md)
 DEFAULT_FIXTURE_USERS = [
     {
         "username": "alice",
