@@ -46,6 +46,7 @@ async def security_headers_middleware(request: Request, call_next):
     """
     response: Response = await call_next(request)
 
+    # Intentional for local education (See [Requirement 04] and [Requirement 09])
     if LAB_MODE == LabMode.HARDENED.value:
         response.headers["Content-Security-Policy"] = "default-src 'self'"
         response.headers["X-Content-Type-Options"] = "nosniff"
@@ -168,6 +169,7 @@ async def admin_page(request: Request):
     if not user:
         return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
 
+    # Intentional for local education (See [Requirement 01] and [Requirement 09])
     if LAB_MODE == LabMode.HARDENED.value:
         if user.get("role") != "admin":
             raise HTTPException(
@@ -191,6 +193,7 @@ async def diagnostic_endpoint():
     In VULNERABLE mode, exposes detailed execution traces and internal runtime information.
     NOTE: All values are purely simulated lab fixtures (no real machine credentials or secrets).
     """
+    # Intentional for local education (See [Requirement 05] and [Requirement 09])
     if LAB_MODE == LabMode.HARDENED.value:
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

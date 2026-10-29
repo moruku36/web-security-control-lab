@@ -136,3 +136,44 @@ Detailed analysis of each security weakness implemented in `web-security-control
 - **情報処理安全確保支援士で重要な観点**:
   - 監査ログに記録すべき事象（認証成功・失敗、権限昇格、設定変更）の網羅性。
   - パスワード等の機密情報をログに出力しないマスキング原則と、ログ改ざん防止・外部転送の重要性。
+
+---
+
+# AI Review Requirements (Requirement N) / AIレビュー用の要件
+
+AIレビュアーが評価軸として直接参照する、番号付きの要件ブロック。上の LAB-01〜06 の検査条件を置き換えるものではなく、レビュー時の参照番号を与える。指摘は `[Requirement N: 要件名]` を先頭に付け、`ファイルパス:行番号` の根拠を添える。この文書に書かれていない事項は、判断材料不足(INSUFFICIENT_DATA)として扱い、推測で合否を出さない。
+
+## [Requirement 01: Endpoint Authorization (LAB-01)]
+`/admin` などの保護エンドポイントは、認証状態だけでなくロール(admin)をエンドポイント自体で検証すること。
+
+## [Requirement 02: Session Cookie HttpOnly (LAB-02)]
+セッションCookieには `HttpOnly` 属性を付与すること。
+
+## [Requirement 03: Session Cookie SameSite (LAB-03)]
+セッションCookieには本ラボの条件(`Lax` または `Strict`)を満たす `SameSite` 値を設定すること。欠落・空値・未知値・重複ヘッダは、不定(ERROR)または不合格(FAIL)として扱う。
+
+## [Requirement 04: Security Headers (LAB-04)]
+ブラウザ側防御を有効化するセキュリティヘッダ(`Content-Security-Policy`、`X-Content-Type-Options`、`Referrer-Policy`)を付与すること。
+
+## [Requirement 05: Error Response Redaction (LAB-05)]
+エラー応答に内部構造や例外文字列を露出させないこと。
+
+## [Requirement 06: Failed Login Audit Logging (LAB-06)]
+ログイン失敗を、運用監視可能な形(種別・ユーザー識別子・クライアントIP・時刻)で記録すること。
+
+## [Requirement 07: Scanner Target Validation & Fail-Closed]
+スキャナCLIは、リクエスト送信前に対象を検証(localhost allowlist)すること。前提条件が崩れた場合は PASS ではなく、拒否(終了コード2)または ERROR(終了コード3)を返すこと。
+根拠: `scanner/target.py`(対象検証)、`scanner/cli.py`(終了コード2・3)。
+
+## [Requirement 08: Evidence Minimization & Secret/Log Protection]
+スキャナ出力(スキーマ2.0)に残す証拠は、allowlist された actor / endpoint / ステータスコード / 許可済みリダイレクト先(最大16件)と、固定の理由コードのみに制限すること。応答本文や例外文字列を混入させない。
+根拠: `scanner/models.py`(`SCHEMA_VERSION`、`MAX_EVIDENCE_ITEMS`)、`scanner/checks.py`(`MAX_OBSERVATIONS`)。
+
+## [Requirement 09: Explicit Scope & Intentional Lab Risks (Secure by Default Exceptions)]
+本リポジトリはローカル教育専用である。次は、ローカル演習目的の意図的な設計判断(Intentional Design Decision)であり、AIレビューで「未修正の脆弱性」として指摘しない。
+
+- `LAB_MODE=VULNERABLE`(既定)での LAB-01〜06 の脆弱な挙動
+- テスト用の固定平文クレデンシャル(`alice` / `admin`、`app/config.py`)
+
+境界(本番流用禁止): これらを本番環境・公開環境・実在のアカウントへ流用してはならない。スキャナの対象はローカル(localhost)に限る。HARDENED モードの挙動と Requirement 01〜08 は、意図的許容の対象外であり、逸脱は指摘する。
+コード側では、VULNERABLE 分岐と教育用フィクスチャに `# Intentional for local education (See [Requirement N] in docs/SECURITY_CONTROLS.md)` のコメントで要件番号を参照している。
