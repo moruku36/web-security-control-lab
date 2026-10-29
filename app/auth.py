@@ -29,7 +29,7 @@ def authenticate_user(username: str, password: str, client_ip: str) -> Optional[
 
     # INTENTIONAL_VULNERABILITY_FOR_LOCAL_LAB: LAB-06 Authentication Logging Failure
     # In VULNERABLE mode, authentication failure is intentionally NOT recorded to audit logs.
-    # Intentional for local education (See [Requirement 06] and [Requirement 09] in docs/SECURITY_CONTROLS.md)
+    # Intentional for local education (See [Requirement 06] and [Requirement 09])
     if LAB_MODE == LabMode.HARDENED.value:
         add_audit_log(
             event_type="AUTH_FAILURE",
@@ -48,7 +48,7 @@ def set_session_cookie(response: Response, username: str) -> str:
     # INTENTIONAL_VULNERABILITY_FOR_LOCAL_LAB: LAB-02 Missing HttpOnly
     # INTENTIONAL_VULNERABILITY_FOR_LOCAL_LAB: LAB-03 Weak SameSite
     # In VULNERABLE mode, httponly is False and samesite is omitted/None.
-    # Intentional for local education (See [Requirement 02], [Requirement 03] and [Requirement 09] in docs/SECURITY_CONTROLS.md)
+    # Intentional for local education (See [Requirement 02], [Requirement 03] and [Requirement 09])
     if LAB_MODE == LabMode.HARDENED.value:
         response.set_cookie(
             key=SESSION_COOKIE_NAME,
